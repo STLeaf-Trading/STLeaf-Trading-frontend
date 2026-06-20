@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UserModel {
   final String id;
   final String email;
   final String name;
   final String role;
-  final String? token;
+  final String? token; // This might be unused in Firebase Auth, but kept for compatibility
 
   const UserModel({
     required this.id,
@@ -13,16 +15,18 @@ class UserModel {
     this.token,
   });
 
-  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        id: json['id'] ?? '',
-        email: json['email'] ?? '',
-        name: json['name'] ?? '',
-        role: json['role'] ?? 'CUSTOMER',
-        token: json['token'],
-      );
+  factory UserModel.fromFirestore(DocumentSnapshot doc) {
+    final json = doc.data() as Map<String, dynamic>? ?? {};
+    return UserModel(
+      id: doc.id,
+      email: json['email'] ?? '',
+      name: json['name'] ?? '',
+      role: json['role'] ?? 'CUSTOMER',
+      token: json['token'],
+    );
+  }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
         'email': email,
         'name': name,
         'role': role,

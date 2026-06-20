@@ -87,7 +87,7 @@ class _HeroBanner extends StatelessWidget {
               color: Colors.white.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.eco_rounded, color: AppColors.white, size: 40),
+            child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.asset('assets/images/logo.jpeg', width: 40, height: 40, fit: BoxFit.cover)),
           ),
         ],
       ),
@@ -123,7 +123,7 @@ class _CategoryFilter extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
-            children: AppConstants.productCategories.map((cat) {
+            children: provider.dynamicCategories.map((cat) {
               final isSelected = provider.selectedCategory == cat;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
@@ -166,13 +166,15 @@ class _ProductGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final crossCount = constraints.maxWidth > 900 ? 4 : (constraints.maxWidth > 600 ? 3 : 2);
+        final itemWidth = (constraints.maxWidth - 32 - (crossCount - 1) * 12) / crossCount;
+        final itemHeight = (itemWidth * 0.8) + 195; // dynamic height calculation to prevent overflow
         return GridView.builder(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossCount,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 0.68,
+            childAspectRatio: itemWidth / itemHeight,
           ),
           itemCount: products.length,
           itemBuilder: (ctx, i) => _ProductCard(product: products[i]),
@@ -223,11 +225,14 @@ class _ProductCardState extends State<_ProductCard> {
                 child: Stack(
                   children: [
                     Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.mint,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                        image: p.imageUrl != null ? DecorationImage(
+                          image: NetworkImage(p.imageUrl!), fit: BoxFit.cover
+                        ) : null,
                       ),
-                      child: Center(child: Icon(Icons.eco_rounded, size: 50, color: AppColors.primary.withOpacity(0.3))),
+                      child: p.imageUrl == null ? Center(child: Icon(Icons.eco_rounded, size: 50, color: AppColors.primary.withOpacity(0.3))) : null,
                     ),
                     if (p.hasPromotion)
                       Positioned(top: 8, left: 8, child: Container(
@@ -302,3 +307,4 @@ class _ProductCardState extends State<_ProductCard> {
     );
   }
 }
+

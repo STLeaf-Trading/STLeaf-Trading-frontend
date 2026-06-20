@@ -55,7 +55,7 @@ class _CustomerAppBar extends StatelessWidget implements PreferredSizeWidget {
               decoration: BoxDecoration(
                 gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.eco_rounded, color: AppColors.white, size: 18),
+              child: ClipRRect(borderRadius: BorderRadius.circular(4), child: Image.asset('assets/images/logo.jpeg', width: 18, height: 18, fit: BoxFit.cover)),
             ),
             const SizedBox(width: 10),
             const Text('ST Leaf', style: TextStyle(
@@ -194,3 +194,4 @@ class _BottomNav extends StatelessWidget {
     );
   }
 }
+

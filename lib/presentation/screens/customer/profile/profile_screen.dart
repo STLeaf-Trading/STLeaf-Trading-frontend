@@ -102,7 +102,7 @@ class ProfileScreen extends StatelessWidget {
                 Container(
                   width: 48, height: 48,
                   decoration: BoxDecoration(gradient: AppColors.primaryGradient, shape: BoxShape.circle),
-                  child: const Icon(Icons.eco_rounded, color: AppColors.white, size: 24),
+                  child: ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.asset('assets/images/logo.jpeg', width: 24, height: 24, fit: BoxFit.cover)),
                 ),
                 const SizedBox(height: 8),
                 const Text('ST Leaf Trading', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)),
@@ -135,3 +135,4 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _divider() => const Divider(height: 1, indent: 72);
 }
+

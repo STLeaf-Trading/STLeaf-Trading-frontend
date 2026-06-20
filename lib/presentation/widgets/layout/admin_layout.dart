@@ -85,7 +85,7 @@ class _SidebarContent extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.accent, borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.eco_rounded, color: AppColors.white, size: 22),
+                    child: ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.asset('assets/images/logo.jpeg', width: 22, height: 22, fit: BoxFit.cover)),
                   ),
                   const SizedBox(width: 12),
                   const Column(
@@ -255,3 +255,4 @@ class _MobileAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
+

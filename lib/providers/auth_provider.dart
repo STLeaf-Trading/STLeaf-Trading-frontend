@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/user_model.dart';
-import '../core/constants/app_constants.dart';
 
 class AuthProvider extends ChangeNotifier {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
   UserModel? _currentUser;
   bool _isLoading = false;
   String? _error;
@@ -15,23 +18,27 @@ class AuthProvider extends ChangeNotifier {
   bool get isAdmin => _currentUser?.isAdmin ?? false;
   bool get isCustomer => _currentUser?.isCustomer ?? false;
 
-  // Mock users
-  static const _mockUsers = [
-    {'id': 'USR001', 'email': 'admin@stleaf.com', 'password': 'Admin123!', 'name': 'Admin ST Leaf', 'role': 'ADMIN'},
-    {'id': 'USR002', 'email': 'john@abcrestaurant.com', 'password': 'Customer123!', 'name': 'John Lim', 'role': 'CUSTOMER'},
-    {'id': 'USR003', 'email': 'mary@goldenpalace.com', 'password': 'Customer123!', 'name': 'Mary Tan', 'role': 'CUSTOMER'},
-  ];
+  Future<void> _updateUser(User? user) async {
+    if (user != null) {
+      final doc = await _db.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        _currentUser = UserModel.fromFirestore(doc);
+      } else {
+        _currentUser = UserModel(id: user.uid, email: user.email ?? '', name: 'Unknown', role: 'CUSTOMER');
+      }
+    } else {
+      _currentUser = null;
+    }
+  }
 
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final email = prefs.getString('user_email');
-    final role = prefs.getString('user_role');
-    final name = prefs.getString('user_name');
-    final id = prefs.getString('user_id');
-    if (email != null && role != null) {
-      _currentUser = UserModel(id: id ?? '', email: email, name: name ?? '', role: role);
+    final initialUser = await _auth.authStateChanges().first;
+    await _updateUser(initialUser);
+
+    _auth.authStateChanges().skip(1).listen((User? user) async {
+      await _updateUser(user);
       notifyListeners();
-    }
+    });
   }
 
   Future<bool> login(String email, String password) async {
@@ -39,34 +46,17 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 800));
-
     try {
-      final user = _mockUsers.firstWhere(
-        (u) => u['email'] == email && u['password'] == password,
-        orElse: () => {},
-      );
-
-      if (user.isEmpty) {
-        _error = 'Invalid email or password.';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
-
-      _currentUser = UserModel(
-        id: user['id']!, email: user['email']!, name: user['name']!, role: user['role']!,
-      );
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_id', user['id']!);
-      await prefs.setString('user_email', user['email']!);
-      await prefs.setString('user_name', user['name']!);
-      await prefs.setString('user_role', user['role']!);
-
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      // init() listener will handle currentUser setting
       _isLoading = false;
       notifyListeners();
       return true;
+    } on FirebaseAuthException catch (e) {
+      _error = e.message ?? 'Login failed. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
     } catch (e) {
       _error = 'Login failed. Please try again.';
       _isLoading = false;
@@ -83,29 +73,50 @@ class AuthProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    await Future.delayed(const Duration(milliseconds: 1000));
-
-    _currentUser = UserModel(
-      id: 'USR${DateTime.now().millisecondsSinceEpoch}',
-      email: email, name: contactPerson, role: 'CUSTOMER',
-    );
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_id', _currentUser!.id);
-    await prefs.setString('user_email', email);
-    await prefs.setString('user_name', contactPerson);
-    await prefs.setString('user_role', 'CUSTOMER');
-
-    _isLoading = false;
-    notifyListeners();
-    return true;
+    try {
+      final userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      if (userCredential.user != null) {
+        final uid = userCredential.user!.uid;
+        // Create user doc
+        await _db.collection('users').doc(uid).set({
+          'email': email,
+          'name': contactPerson,
+          'role': 'CUSTOMER',
+        });
+        // Create customer doc
+        await _db.collection('customers').doc(uid).set({
+          'customerCode': 'CUST-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}',
+          'companyName': companyName,
+          'contactPerson': contactPerson,
+          'phoneNumber': phone,
+          'email': email,
+          'businessRegistrationNo': '',
+          'address': '',
+          'creditLimit': 0,
+          'creditTerm': 'COD',
+          'status': 'Active',
+          'outstandingBalance': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _error = e.message ?? 'Registration failed. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Registration failed. Please try again.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<void> logout() async {
-    _currentUser = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    notifyListeners();
+    await _auth.signOut();
   }
 
   void clearError() {

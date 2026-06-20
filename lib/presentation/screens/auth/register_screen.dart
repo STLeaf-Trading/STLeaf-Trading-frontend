@@ -56,18 +56,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Container(
               width: 280,
               decoration: const BoxDecoration(gradient: AppColors.heroGradient),
-              child: const Padding(
-                padding: EdgeInsets.all(40),
+              child: Padding(
+                padding: const EdgeInsets.all(40),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.eco_rounded, color: AppColors.white, size: 48),
-                    SizedBox(height: 32),
-                    Text('Join ST Leaf\nTrading',
+                    Container(
+                      width: 86,
+                      height: 86,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.white.withOpacity(0.5), width: 2),
+                        color: AppColors.white,
+                      ),
+                      child: ClipOval(
+                        child: Transform.scale(
+                          scale: 1.4,
+                          child: Image.asset('assets/images/logo.jpeg', fit: BoxFit.cover),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    const Text('Join ST Leaf\nTrading',
                       style: TextStyle(color: AppColors.white, fontSize: 32, fontWeight: FontWeight.w800, height: 1.2)),
-                    SizedBox(height: 16),
-                    Text('Register as a wholesale customer and start ordering fresh vegetables today.',
+                    const SizedBox(height: 16),
+                    const Text('Register as a wholesale customer and start ordering fresh vegetables today.',
                       style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.6)),
                   ],
                 ),
@@ -177,3 +191,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ProductModel {
   final String id;
   final String itemCode;
@@ -13,7 +15,6 @@ class ProductModel {
   final int stockQuantity;
   final String? imageUrl;
   final String status;
-  final DateTime createdAt;
 
   const ProductModel({
     required this.id,
@@ -30,7 +31,6 @@ class ProductModel {
     required this.stockQuantity,
     this.imageUrl,
     required this.status,
-    required this.createdAt,
   });
 
   double get effectivePrice => promotionPrice ?? price;
@@ -39,26 +39,27 @@ class ProductModel {
   bool get isOutOfStock => stockQuantity == 0;
   bool get isActive => status == 'Active';
 
-  factory ProductModel.fromJson(Map<String, dynamic> json) => ProductModel(
-        id: json['id'] ?? '',
-        itemCode: json['itemCode'] ?? '',
-        name: json['name'] ?? '',
-        category: json['category'] ?? '',
-        description: json['description'] ?? '',
-        precaution: json['precaution'] ?? '',
-        freshnessLevel: json['freshnessLevel'] ?? 'Fresh',
-        packType: json['packType'] ?? '',
-        weightKg: (json['weightKg'] ?? 0).toDouble(),
-        price: (json['price'] ?? 0).toDouble(),
-        promotionPrice: json['promotionPrice']?.toDouble(),
-        stockQuantity: json['stockQuantity'] ?? 0,
-        imageUrl: json['imageUrl'],
-        status: json['status'] ?? 'Active',
-        createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-      );
+  factory ProductModel.fromFirestore(DocumentSnapshot doc) {
+    final json = doc.data() as Map<String, dynamic>? ?? {};
+    return ProductModel(
+      id: doc.id,
+      itemCode: json['itemCode'] ?? '',
+      name: json['name'] ?? '',
+      category: json['category'] ?? '',
+      description: json['description'] ?? '',
+      precaution: json['precaution'] ?? '',
+      freshnessLevel: json['freshnessLevel'] ?? 'A',
+      packType: json['packType'] ?? '',
+      weightKg: (json['weightKg'] ?? 0).toDouble(),
+      price: (json['price'] ?? 0).toDouble(),
+      promotionPrice: json['promotionPrice']?.toDouble(),
+      stockQuantity: json['stockQuantity'] ?? 0,
+      imageUrl: json['imageUrl'],
+      status: json['status'] ?? 'Active',
+    );
+  }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
         'itemCode': itemCode,
         'name': name,
         'category': category,
@@ -72,6 +73,5 @@ class ProductModel {
         'stockQuantity': stockQuantity,
         'imageUrl': imageUrl,
         'status': status,
-        'createdAt': createdAt.toIso8601String(),
       };
 }

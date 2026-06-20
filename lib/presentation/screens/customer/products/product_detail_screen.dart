@@ -94,15 +94,16 @@ class _ProductImage extends StatelessWidget {
     return Container(
       height: 320,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.mint, AppColors.mintDark],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-        ),
+        color: AppColors.mint,
         borderRadius: BorderRadius.circular(20),
+        image: product.imageUrl != null ? DecorationImage(
+          image: NetworkImage(product.imageUrl!), fit: BoxFit.cover
+        ) : null,
       ),
       child: Stack(
         children: [
-          Center(child: Icon(Icons.eco_rounded, size: 120, color: AppColors.primary.withOpacity(0.25))),
+          if (product.imageUrl == null)
+            Center(child: Icon(Icons.eco_rounded, size: 120, color: AppColors.primary.withOpacity(0.25))),
           if (product.hasPromotion)
             Positioned(top: 16, left: 16, child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

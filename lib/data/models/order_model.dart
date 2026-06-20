@@ -1,8 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'product_model.dart';
 
 class OrderItemModel {
-  final String id;
-  final String orderId;
   final String productId;
   final ProductModel? product;
   final int quantity;
@@ -10,8 +9,6 @@ class OrderItemModel {
   final double subtotal;
 
   const OrderItemModel({
-    required this.id,
-    required this.orderId,
     required this.productId,
     this.product,
     required this.quantity,
@@ -19,19 +16,15 @@ class OrderItemModel {
     required this.subtotal,
   });
 
-  factory OrderItemModel.fromJson(Map<String, dynamic> json) => OrderItemModel(
-        id: json['id'] ?? '',
-        orderId: json['orderId'] ?? '',
+  factory OrderItemModel.fromMap(Map<String, dynamic> json) => OrderItemModel(
         productId: json['productId'] ?? '',
-        product: json['product'] != null ? ProductModel.fromJson(json['product']) : null,
+        product: json['product'] != null ? ProductModel.fromFirestore(json['product'] as DocumentSnapshot) : null,
         quantity: json['quantity'] ?? 0,
         price: (json['price'] ?? 0).toDouble(),
         subtotal: (json['subtotal'] ?? 0).toDouble(),
       );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'orderId': orderId,
         'productId': productId,
         'quantity': quantity,
         'price': price,
@@ -53,7 +46,6 @@ class OrderModel {
   final String paymentStatus;
   final String orderStatus;
   final List<OrderItemModel> items;
-  final DateTime createdAt;
 
   const OrderModel({
     required this.id,
@@ -69,7 +61,6 @@ class OrderModel {
     required this.paymentStatus,
     required this.orderStatus,
     required this.items,
-    required this.createdAt,
   });
 
   bool get isPending => orderStatus == 'Pending';
@@ -77,27 +68,35 @@ class OrderModel {
   bool get isDelivered => orderStatus == 'Delivered';
   bool get isOutstanding => paymentStatus == 'Pending' || paymentStatus == 'Overdue';
 
-  factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
-        id: json['id'] ?? '',
-        orderId: json['orderId'] ?? '',
-        customerId: json['customerId'] ?? '',
-        customerName: json['customerName'],
-        orderDate: DateTime.tryParse(json['orderDate'] ?? '') ?? DateTime.now(),
-        deliveryDate: DateTime.tryParse(json['deliveryDate'] ?? '') ?? DateTime.now().add(const Duration(days: 1)),
-        subtotal: (json['subtotal'] ?? 0).toDouble(),
-        deliveryFee: (json['deliveryFee'] ?? 0).toDouble(),
-        totalAmount: (json['totalAmount'] ?? 0).toDouble(),
-        paymentMethod: json['paymentMethod'] ?? 'Cash',
-        paymentStatus: json['paymentStatus'] ?? 'Pending',
-        orderStatus: json['orderStatus'] ?? 'Pending',
-        items: (json['items'] as List<dynamic>? ?? [])
-            .map((e) => OrderItemModel.fromJson(e))
-            .toList(),
-        createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-      );
+  factory OrderModel.fromFirestore(DocumentSnapshot doc) {
+    final json = doc.data() as Map<String, dynamic>? ?? {};
+    
+    DateTime parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+      return DateTime.now();
+    }
+
+    return OrderModel(
+      id: doc.id,
+      orderId: json['orderId'] ?? '',
+      customerId: json['customerId'] ?? '',
+      customerName: json['customerName'],
+      orderDate: parseDate(json['orderDate']),
+      deliveryDate: parseDate(json['deliveryDate']),
+      subtotal: (json['subtotal'] ?? 0).toDouble(),
+      deliveryFee: (json['deliveryFee'] ?? 0).toDouble(),
+      totalAmount: (json['totalAmount'] ?? 0).toDouble(),
+      paymentMethod: json['paymentMethod'] ?? 'Cash',
+      paymentStatus: json['paymentStatus'] ?? 'Pending',
+      orderStatus: json['orderStatus'] ?? 'Pending',
+      items: (json['items'] as List<dynamic>? ?? [])
+          .map((e) => OrderItemModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
         'orderId': orderId,
         'customerId': customerId,
         'customerName': customerName,
@@ -110,6 +109,5 @@ class OrderModel {
         'paymentStatus': paymentStatus,
         'orderStatus': orderStatus,
         'items': items.map((e) => e.toJson()).toList(),
-        'createdAt': createdAt.toIso8601String(),
       };
 }

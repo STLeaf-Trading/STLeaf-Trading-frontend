@@ -115,7 +115,7 @@ class _FilterRow extends StatelessWidget {
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: provider.selectedCategory,
-                items: AppConstants.productCategories.map((c) =>
+                items: provider.dynamicCategories.map((c) =>
                   DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 14)))).toList(),
                 onChanged: (v) => provider.setCategory(v!),
               ),
@@ -136,13 +136,15 @@ class _ProductGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final crossCount = constraints.maxWidth > 1000 ? 4 : (constraints.maxWidth > 700 ? 3 : 2);
+        final itemWidth = (constraints.maxWidth - 56 - (crossCount - 1) * 16) / crossCount;
+        final itemHeight = 130 + 225.0; // 130px for image + 225px for content
         return GridView.builder(
           padding: const EdgeInsets.fromLTRB(28, 8, 28, 28),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossCount,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 0.72,
+            childAspectRatio: itemWidth / itemHeight,
           ),
           itemCount: products.length,
           itemBuilder: (ctx, i) => _ProductCard(product: products[i]),
@@ -189,11 +191,16 @@ class _ProductCardState extends State<_ProductCard> {
             Container(
               height: 130,
               decoration: BoxDecoration(
-                color: AppColors.mint, borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                color: AppColors.mint,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                image: p.imageUrl != null ? DecorationImage(
+                  image: NetworkImage(p.imageUrl!), fit: BoxFit.cover
+                ) : null,
               ),
               child: Stack(
                 children: [
-                  Center(child: Icon(Icons.eco_rounded, size: 52, color: AppColors.primary.withOpacity(0.3))),
+                  if (p.imageUrl == null)
+                    Center(child: Icon(Icons.eco_rounded, size: 52, color: AppColors.primary.withOpacity(0.3))),
                   if (p.hasPromotion)
                     Positioned(top: 10, left: 10,
                       child: Container(
@@ -232,16 +239,20 @@ class _ProductCardState extends State<_ProductCard> {
                     const Spacer(),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (p.hasPromotion) Text('RM ${p.price.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),
-                            Text('RM ${p.effectivePrice.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.primary)),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (p.hasPromotion) Text('RM ${p.price.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 11, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),
+                              Text('RM ${p.effectivePrice.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 4),
                         StatusBadge(status: p.isOutOfStock ? 'Out of Stock' : p.isLowStock ? 'Low Stock' : 'In Stock'),
                       ],
                     ),

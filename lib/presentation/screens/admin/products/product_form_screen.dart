@@ -1,7 +1,9 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/core/constants/app_constants.dart';
 import 'package:stleaf_trading/data/models/product_model.dart';
@@ -19,7 +21,9 @@ class ProductFormScreen extends StatefulWidget {
 
 class _ProductFormScreenState extends State<ProductFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _itemCodeCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
+  final _categoryCtrl = TextEditingController(text: AppConstants.productCategories.first);
   final _descCtrl = TextEditingController();
   final _precautionCtrl = TextEditingController();
   final _packTypeCtrl = TextEditingController();
@@ -28,10 +32,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _stockCtrl = TextEditingController();
   final _weightCtrl = TextEditingController();
 
-  String _selectedCategory = AppConstants.productCategories[1];
   String _selectedFreshness = AppConstants.freshnessLevels[0];
   bool _hasPromo = false;
   bool _isSaving = false;
+  
+  Uint8List? _selectedImageBytes;
+  String? _existingImageUrl;
+
   bool get _isEditing => widget.productId != null;
 
   @override
@@ -39,21 +46,26 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     super.initState();
     if (_isEditing) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _loadProduct());
+    } else {
+      _itemCodeCtrl.text = 'VEG-${DateTime.now().millisecondsSinceEpoch % 1000}';
     }
   }
 
   void _loadProduct() {
     final products = context.read<ProductProvider>().allProducts;
     final p = products.firstWhere((p) => p.id == widget.productId, orElse: () => products.first);
+    _itemCodeCtrl.text = p.itemCode;
     _nameCtrl.text = p.name;
+    _categoryCtrl.text = p.category;
     _descCtrl.text = p.description;
     _precautionCtrl.text = p.precaution;
     _packTypeCtrl.text = p.packType;
     _priceCtrl.text = p.price.toString();
     _weightCtrl.text = p.weightKg.toString();
     _stockCtrl.text = p.stockQuantity.toString();
+    _existingImageUrl = p.imageUrl;
+    
     setState(() {
-      _selectedCategory = p.category;
       _selectedFreshness = p.freshnessLevel;
       _hasPromo = p.hasPromotion;
       if (p.hasPromotion) _promoPriceCtrl.text = p.promotionPrice.toString();
@@ -62,22 +74,73 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose(); _descCtrl.dispose(); _precautionCtrl.dispose();
-    _packTypeCtrl.dispose(); _priceCtrl.dispose(); _promoPriceCtrl.dispose();
-    _stockCtrl.dispose(); _weightCtrl.dispose();
+    _itemCodeCtrl.dispose(); _nameCtrl.dispose(); _categoryCtrl.dispose();
+    _descCtrl.dispose(); _precautionCtrl.dispose(); _packTypeCtrl.dispose();
+    _priceCtrl.dispose(); _promoPriceCtrl.dispose(); _stockCtrl.dispose();
+    _weightCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: source, imageQuality: 70);
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      setState(() => _selectedImageBytes = bytes);
+    }
+  }
+
+  void _showImagePickerModal() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _PickerOption(icon: Icons.camera_alt_rounded, label: 'Camera', onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.camera);
+              }),
+              _PickerOption(icon: Icons.photo_library_rounded, label: 'Gallery', onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.gallery);
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    final provider = context.read<ProductProvider>();
+    final code = _itemCodeCtrl.text.trim();
+    if (!provider.isItemCodeUnique(code, widget.productId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Item Code "$code" is already in use.'), backgroundColor: AppColors.danger)
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
-    await Future.delayed(const Duration(milliseconds: 600));
+
+    String? finalImageUrl = _existingImageUrl;
+    if (_selectedImageBytes != null) {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final url = await provider.uploadProductImage(_selectedImageBytes!, fileName);
+      if (url != null) finalImageUrl = url;
+    }
 
     final product = ProductModel(
       id: widget.productId ?? const Uuid().v4(),
-      itemCode: 'VEG-${DateTime.now().millisecondsSinceEpoch % 1000}',
+      itemCode: code,
       name: _nameCtrl.text.trim(),
-      category: _selectedCategory,
+      category: _categoryCtrl.text.trim(),
       description: _descCtrl.text.trim(),
       precaution: _precautionCtrl.text.trim(),
       freshnessLevel: _selectedFreshness,
@@ -86,15 +149,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       price: double.tryParse(_priceCtrl.text) ?? 0,
       promotionPrice: _hasPromo && _promoPriceCtrl.text.isNotEmpty ? double.tryParse(_promoPriceCtrl.text) : null,
       stockQuantity: int.tryParse(_stockCtrl.text) ?? 0,
+      imageUrl: finalImageUrl,
       status: 'Active',
-      createdAt: DateTime.now(),
     );
 
-    final provider = context.read<ProductProvider>();
     if (_isEditing) {
-      provider.updateProduct(product);
+      await provider.updateProduct(product);
     } else {
-      provider.addProduct(product);
+      await provider.addProduct(product);
     }
 
     if (mounted) {
@@ -145,33 +207,37 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(flex: 3, child: _FormSection(
-                          nameCtrl: _nameCtrl, descCtrl: _descCtrl, precautionCtrl: _precautionCtrl,
-                          packTypeCtrl: _packTypeCtrl, priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl,
-                          stockCtrl: _stockCtrl, weightCtrl: _weightCtrl,
-                          selectedCategory: _selectedCategory, selectedFreshness: _selectedFreshness,
-                          hasPromo: _hasPromo,
-                          onCategoryChanged: (v) => setState(() => _selectedCategory = v!),
+                          itemCodeCtrl: _itemCodeCtrl, nameCtrl: _nameCtrl, categoryCtrl: _categoryCtrl,
+                          descCtrl: _descCtrl, precautionCtrl: _precautionCtrl, packTypeCtrl: _packTypeCtrl,
+                          priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl, stockCtrl: _stockCtrl, weightCtrl: _weightCtrl,
+                          selectedFreshness: _selectedFreshness, hasPromo: _hasPromo,
                           onFreshnessChanged: (v) => setState(() => _selectedFreshness = v!),
                           onPromoToggled: (v) => setState(() => _hasPromo = v!),
+                          onImagePick: _showImagePickerModal,
+                          imageBytes: _selectedImageBytes,
+                          existingImageUrl: _existingImageUrl,
                         )),
                         const SizedBox(width: 24),
                         SizedBox(width: 240, child: _PreviewCard(
-                          name: _nameCtrl.text, category: _selectedCategory,
+                          name: _nameCtrl.text, category: _categoryCtrl.text,
                           freshness: _selectedFreshness, price: _priceCtrl.text,
                           promoPrice: _hasPromo ? _promoPriceCtrl.text : null,
+                          imageBytes: _selectedImageBytes,
+                          existingImageUrl: _existingImageUrl,
                         )),
                       ],
                     );
                   }
                   return _FormSection(
-                    nameCtrl: _nameCtrl, descCtrl: _descCtrl, precautionCtrl: _precautionCtrl,
-                    packTypeCtrl: _packTypeCtrl, priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl,
-                    stockCtrl: _stockCtrl, weightCtrl: _weightCtrl,
-                    selectedCategory: _selectedCategory, selectedFreshness: _selectedFreshness,
-                    hasPromo: _hasPromo,
-                    onCategoryChanged: (v) => setState(() => _selectedCategory = v!),
+                    itemCodeCtrl: _itemCodeCtrl, nameCtrl: _nameCtrl, categoryCtrl: _categoryCtrl,
+                    descCtrl: _descCtrl, precautionCtrl: _precautionCtrl, packTypeCtrl: _packTypeCtrl,
+                    priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl, stockCtrl: _stockCtrl, weightCtrl: _weightCtrl,
+                    selectedFreshness: _selectedFreshness, hasPromo: _hasPromo,
                     onFreshnessChanged: (v) => setState(() => _selectedFreshness = v!),
                     onPromoToggled: (v) => setState(() => _hasPromo = v!),
+                    onImagePick: _showImagePickerModal,
+                    imageBytes: _selectedImageBytes,
+                    existingImageUrl: _existingImageUrl,
                   );
                 },
               ),
@@ -201,20 +267,55 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   }
 }
 
+class _PickerOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _PickerOption({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.mint, shape: BoxShape.circle),
+              child: Icon(icon, color: AppColors.primary, size: 32),
+            ),
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FormSection extends StatelessWidget {
-  final TextEditingController nameCtrl, descCtrl, precautionCtrl, packTypeCtrl,
+  final TextEditingController itemCodeCtrl, nameCtrl, categoryCtrl, descCtrl, precautionCtrl, packTypeCtrl,
       priceCtrl, promoPriceCtrl, stockCtrl, weightCtrl;
-  final String selectedCategory, selectedFreshness;
+  final String selectedFreshness;
   final bool hasPromo;
-  final ValueChanged<String?> onCategoryChanged, onFreshnessChanged;
+  final ValueChanged<String?> onFreshnessChanged;
   final ValueChanged<bool?> onPromoToggled;
+  final VoidCallback onImagePick;
+  final Uint8List? imageBytes;
+  final String? existingImageUrl;
 
   const _FormSection({
-    required this.nameCtrl, required this.descCtrl, required this.precautionCtrl,
-    required this.packTypeCtrl, required this.priceCtrl, required this.promoPriceCtrl,
-    required this.stockCtrl, required this.weightCtrl, required this.selectedCategory,
+    required this.itemCodeCtrl, required this.nameCtrl, required this.categoryCtrl,
+    required this.descCtrl, required this.precautionCtrl, required this.packTypeCtrl,
+    required this.priceCtrl, required this.promoPriceCtrl, required this.stockCtrl, required this.weightCtrl,
     required this.selectedFreshness, required this.hasPromo,
-    required this.onCategoryChanged, required this.onFreshnessChanged, required this.onPromoToggled,
+    required this.onFreshnessChanged, required this.onPromoToggled,
+    required this.onImagePick, this.imageBytes, this.existingImageUrl,
   });
 
   @override
@@ -227,8 +328,44 @@ class _FormSection extends StatelessWidget {
             children: [
               const Text('Basic Information', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
               const SizedBox(height: 20),
-              AppTextField(label: 'Product Name *', hint: 'e.g. Kangkung (Water Spinach)', controller: nameCtrl,
-                validator: (v) => (v == null || v.isEmpty) ? 'Name is required' : null),
+              
+              // Image Picker Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 80, height: 80,
+                    decoration: BoxDecoration(
+                      color: AppColors.mint,
+                      borderRadius: BorderRadius.circular(12),
+                      image: imageBytes != null
+                          ? DecorationImage(image: MemoryImage(imageBytes!), fit: BoxFit.cover)
+                          : (existingImageUrl != null
+                              ? DecorationImage(image: NetworkImage(existingImageUrl!), fit: BoxFit.cover)
+                              : null),
+                    ),
+                    child: (imageBytes == null && existingImageUrl == null)
+                        ? const Icon(Icons.add_photo_alternate_rounded, color: AppColors.primary, size: 32)
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  AppButton(
+                    label: 'Choose Image',
+                    isOutlined: true,
+                    icon: Icons.upload_rounded,
+                    onPressed: onImagePick,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              Row(children: [
+                Expanded(child: AppTextField(label: 'Item Code *', hint: 'e.g. VEG-001', controller: itemCodeCtrl,
+                  validator: (v) => (v == null || v.isEmpty) ? 'Item code is required' : null)),
+                const SizedBox(width: 16),
+                Expanded(child: AppTextField(label: 'Product Name *', hint: 'e.g. Kangkung', controller: nameCtrl,
+                  validator: (v) => (v == null || v.isEmpty) ? 'Name is required' : null)),
+              ]),
               const SizedBox(height: 16),
               Row(children: [
                 Expanded(child: Column(
@@ -236,15 +373,44 @@ class _FormSection extends StatelessWidget {
                   children: [
                     const Text('Category *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: selectedCategory,
-                      items: AppConstants.productCategories.skip(1).map((c) =>
-                        DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 14)))).toList(),
-                      onChanged: onCategoryChanged,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
+                    RawAutocomplete<String>(
+                      textEditingController: categoryCtrl,
+                      focusNode: FocusNode(),
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text.isEmpty) return AppConstants.productCategories;
+                        return AppConstants.productCategories.where((String option) =>
+                            option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                      },
+                      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                        return TextFormField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            hintText: 'Type or select category',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                        );
+                      },
+                      optionsViewBuilder: (context, onSelected, options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4,
+                            child: SizedBox(
+                              height: 200,
+                              child: ListView(
+                                padding: EdgeInsets.zero,
+                                children: options.map((opt) => ListTile(
+                                  title: Text(opt),
+                                  onTap: () => onSelected(opt),
+                                )).toList(),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 )),
@@ -321,9 +487,11 @@ class _PreviewCard extends StatelessWidget {
   final String name, category, freshness;
   final String price;
   final String? promoPrice;
+  final Uint8List? imageBytes;
+  final String? existingImageUrl;
 
   const _PreviewCard({required this.name, required this.category, required this.freshness,
-    required this.price, this.promoPrice});
+    required this.price, this.promoPrice, this.imageBytes, this.existingImageUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -335,14 +503,24 @@ class _PreviewCard extends StatelessWidget {
           const SizedBox(height: 16),
           Container(
             height: 120, width: double.infinity,
-            decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(12)),
-            child: const Center(child: Icon(Icons.eco_rounded, size: 48, color: AppColors.primary)),
+            decoration: BoxDecoration(
+              color: AppColors.mint, 
+              borderRadius: BorderRadius.circular(12),
+              image: imageBytes != null
+                  ? DecorationImage(image: MemoryImage(imageBytes!), fit: BoxFit.cover)
+                  : (existingImageUrl != null
+                      ? DecorationImage(image: NetworkImage(existingImageUrl!), fit: BoxFit.cover)
+                      : null),
+            ),
+            child: (imageBytes == null && existingImageUrl == null)
+                ? const Center(child: Icon(Icons.eco_rounded, size: 48, color: AppColors.primary))
+                : null,
           ),
           const SizedBox(height: 12),
           Text(name.isEmpty ? 'Product Name' : name,
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           const SizedBox(height: 6),
-          Text(category, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          Text(category.isEmpty ? 'Category' : category, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
           const SizedBox(height: 8),
           FreshnessBadge(level: freshness),
           const SizedBox(height: 10),

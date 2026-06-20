@@ -42,11 +42,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       paymentStatus: 'Pending',
       orderStatus: 'Pending',
       items: cart.items.map((i) => OrderItemModel(
-        id: const Uuid().v4(), orderId: '',
         productId: i.product.id, product: i.product,
         quantity: i.quantity, price: i.product.effectivePrice, subtotal: i.subtotal,
       )).toList(),
-      createdAt: DateTime.now(),
     );
 
     await orderProvider.placeOrder(order);

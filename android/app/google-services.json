@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "91637331342",
+    "project_id": "stleaf-trading",
+    "storage_bucket": "stleaf-trading.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:91637331342:android:7f1c3218168a7c3d6420df",
+        "android_client_info": {
+          "package_name": "com.STLeaf.STLeaf"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "REDACTED_ANDROID_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:91637331342:android:3bc87422404cd8966420df",
+        "android_client_info": {
+          "package_name": "com.stleaf.stleaf_trading"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "REDACTED_ANDROID_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

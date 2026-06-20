@@ -1,25 +1,37 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/product_model.dart';
-import '../data/models/inventory_model.dart';
 import '../data/models/customer_model.dart';
 import '../data/models/order_model.dart';
-import '../data/models/inventory_model.dart' show DeliveryModel, PaymentModel, DashboardStats;
-import '../data/mock/mock_data.dart';
+import 'dart:typed_data';
+import '../data/models/inventory_model.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import '../core/constants/app_constants.dart';
 
-// ─────────────────────────────────────────────────────
 // PRODUCT PROVIDER
-// ─────────────────────────────────────────────────────
 class ProductProvider extends ChangeNotifier {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   List<ProductModel> _products = [];
   bool _isLoading = false;
   String _searchQuery = '';
   String _selectedCategory = 'All';
+  StreamSubscription? _sub;
 
   List<ProductModel> get products => _filtered;
   List<ProductModel> get allProducts => _products;
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
+
+  List<String> get dynamicCategories {
+    final Set<String> cats = {'All'};
+    cats.addAll(AppConstants.productCategories);
+    for (var p in _products) {
+      if (p.category.isNotEmpty) cats.add(p.category);
+    }
+    return cats.toList();
+  }
 
   List<ProductModel> get _filtered {
     return _products.where((p) {
@@ -34,10 +46,12 @@ class ProductProvider extends ChangeNotifier {
   Future<void> loadProducts() async {
     _isLoading = true;
     notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 500));
-    _products = List.from(MockData.products);
-    _isLoading = false;
-    notifyListeners();
+    _sub?.cancel();
+    _sub = _db.collection('products').snapshots().listen((snap) {
+      _products = snap.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
+      _isLoading = false;
+      notifyListeners();
+    });
   }
 
   void setSearch(String query) {
@@ -50,31 +64,44 @@ class ProductProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addProduct(ProductModel product) {
-    _products.insert(0, product);
-    notifyListeners();
+  Future<void> addProduct(ProductModel product) async {
+    await _db.collection('products').add(product.toJson());
   }
 
-  void updateProduct(ProductModel updated) {
-    final idx = _products.indexWhere((p) => p.id == updated.id);
-    if (idx != -1) {
-      _products[idx] = updated;
-      notifyListeners();
+  Future<void> updateProduct(ProductModel updated) async {
+    await _db.collection('products').doc(updated.id).update(updated.toJson());
+  }
+
+  Future<void> deleteProduct(String id) async {
+    await _db.collection('products').doc(id).delete();
+  }
+
+  bool isItemCodeUnique(String code, String? excludeId) {
+    return !_products.any((p) => p.itemCode.toLowerCase() == code.toLowerCase() && p.id != excludeId);
+  }
+
+  Future<String?> uploadProductImage(Uint8List fileBytes, String fileName) async {
+    try {
+      final ref = FirebaseStorage.instance.ref().child('products/$fileName');
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
+      await ref.putData(fileBytes, metadata);
+      return await ref.getDownloadURL();
+    } catch (e) {
+      debugPrint('Image upload error: $e');
+      return null;
     }
   }
 
-  void deleteProduct(String id) {
-    _products.removeWhere((p) => p.id == id);
-    notifyListeners();
+  List<ProductModel> get lowStockProducts => _products.where((p) => p.isLowStock).toList();
+  
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
-
-  List<ProductModel> get lowStockProducts =>
-      _products.where((p) => p.isLowStock).toList();
 }
 
-// ─────────────────────────────────────────────────────
 // CART PROVIDER
-// ─────────────────────────────────────────────────────
 class CartItem {
   final ProductModel product;
   int quantity;
@@ -125,13 +152,13 @@ class CartProvider extends ChangeNotifier {
   }
 }
 
-// ─────────────────────────────────────────────────────
 // ORDER PROVIDER
-// ─────────────────────────────────────────────────────
 class OrderProvider extends ChangeNotifier {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   List<OrderModel> _orders = [];
   bool _isLoading = false;
   String _statusFilter = 'All';
+  StreamSubscription? _sub;
 
   List<OrderModel> get orders => _filtered;
   List<OrderModel> get allOrders => _orders;
@@ -146,12 +173,18 @@ class OrderProvider extends ChangeNotifier {
   Future<void> loadOrders({String? customerId}) async {
     _isLoading = true;
     notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 500));
-    _orders = customerId == null
-        ? List.from(MockData.orders)
-        : MockData.orders.where((o) => o.customerId == customerId).toList();
-    _isLoading = false;
-    notifyListeners();
+    _sub?.cancel();
+    
+    Query query = _db.collection('orders').orderBy('createdAt', descending: true);
+    if (customerId != null) {
+      query = query.where('customerId', isEqualTo: customerId);
+    }
+    
+    _sub = query.snapshots().listen((snap) {
+      _orders = snap.docs.map((doc) => OrderModel.fromFirestore(doc)).toList();
+      _isLoading = false;
+      notifyListeners();
+    });
   }
 
   void setStatusFilter(String status) {
@@ -160,25 +193,42 @@ class OrderProvider extends ChangeNotifier {
   }
 
   Future<OrderModel?> placeOrder(OrderModel order) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    _orders.insert(0, order);
-    notifyListeners();
-    return order;
+    final docRef = await _db.collection('orders').add(order.toJson());
+    return OrderModel(
+      id: docRef.id,
+      orderId: order.orderId,
+      customerId: order.customerId,
+      customerName: order.customerName,
+      orderDate: order.orderDate,
+      deliveryDate: order.deliveryDate,
+      subtotal: order.subtotal,
+      deliveryFee: order.deliveryFee,
+      totalAmount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+      items: order.items,
+    );
   }
 
-  void updateStatus(String orderId, String status) {
-    final idx = _orders.indexWhere((o) => o.id == orderId);
-    if (idx != -1) notifyListeners();
+  Future<void> updateStatus(String orderId, String status) async {
+    await _db.collection('orders').doc(orderId).update({'orderStatus': status});
+  }
+  
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 }
 
-// ─────────────────────────────────────────────────────
 // CUSTOMER PROVIDER
-// ─────────────────────────────────────────────────────
 class CustomerProvider extends ChangeNotifier {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   List<CustomerModel> _customers = [];
   bool _isLoading = false;
   String _searchQuery = '';
+  StreamSubscription? _sub;
 
   List<CustomerModel> get customers => _filtered;
   bool get isLoading => _isLoading;
@@ -195,24 +245,32 @@ class CustomerProvider extends ChangeNotifier {
   Future<void> loadCustomers() async {
     _isLoading = true;
     notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 400));
-    _customers = List.from(MockData.customers);
-    _isLoading = false;
-    notifyListeners();
+    _sub?.cancel();
+    _sub = _db.collection('customers').snapshots().listen((snap) {
+      _customers = snap.docs.map((doc) => CustomerModel.fromFirestore(doc)).toList();
+      _isLoading = false;
+      notifyListeners();
+    });
   }
 
   void setSearch(String q) {
     _searchQuery = q;
     notifyListeners();
   }
+  
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
 }
 
-// ─────────────────────────────────────────────────────
 // INVENTORY PROVIDER
-// ─────────────────────────────────────────────────────
 class InventoryProvider extends ChangeNotifier {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   List<InventoryModel> _inventory = [];
   bool _isLoading = false;
+  StreamSubscription? _sub;
 
   List<InventoryModel> get inventory => _inventory;
   bool get isLoading => _isLoading;
@@ -222,32 +280,44 @@ class InventoryProvider extends ChangeNotifier {
   Future<void> loadInventory() async {
     _isLoading = true;
     notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 400));
-    _inventory = List.from(MockData.inventory);
-    _isLoading = false;
-    notifyListeners();
+    _sub?.cancel();
+    // Maps products to InventoryModel for compatibility
+    _sub = _db.collection('products').snapshots().listen((snap) {
+      _inventory = snap.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return InventoryModel(
+          id: doc.id,
+          productId: doc.id,
+          productName: data['name'] ?? '',
+          productCode: data['itemCode'] ?? '',
+          currentStock: data['stockQuantity'] ?? 0,
+          reservedStock: 0,
+          reorderLevel: 10,
+          lastUpdated: DateTime.now(),
+        );
+      }).toList();
+      _isLoading = false;
+      notifyListeners();
+    });
   }
 
-  void updateStock(String id, int newStock) {
-    final idx = _inventory.indexWhere((i) => i.id == id);
-    if (idx != -1) {
-      _inventory[idx] = InventoryModel(
-        id: _inventory[idx].id, productId: _inventory[idx].productId,
-        productName: _inventory[idx].productName, productCode: _inventory[idx].productCode,
-        currentStock: newStock, reservedStock: _inventory[idx].reservedStock,
-        reorderLevel: _inventory[idx].reorderLevel, lastUpdated: DateTime.now(),
-      );
-      notifyListeners();
-    }
+  Future<void> updateStock(String id, int newStock) async {
+    await _db.collection('products').doc(id).update({'stockQuantity': newStock});
+  }
+  
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 }
 
-// ─────────────────────────────────────────────────────
 // DELIVERY PROVIDER
-// ─────────────────────────────────────────────────────
 class DeliveryProvider extends ChangeNotifier {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   List<DeliveryModel> _deliveries = [];
   bool _isLoading = false;
+  StreamSubscription? _sub;
 
   List<DeliveryModel> get deliveries => _deliveries;
   bool get isLoading => _isLoading;
@@ -255,22 +325,39 @@ class DeliveryProvider extends ChangeNotifier {
   Future<void> loadDeliveries() async {
     _isLoading = true;
     notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 400));
-    _deliveries = List.from(MockData.deliveries);
-    _isLoading = false;
-    notifyListeners();
+    _sub?.cancel();
+    _sub = _db.collection('orders').where('orderStatus', isNotEqualTo: 'Delivered').snapshots().listen((snap) {
+      _deliveries = snap.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return DeliveryModel(
+          id: doc.id,
+          orderId: data['orderId'] ?? '',
+          customerName: data['customerName'] ?? '',
+          deliveryDate: DateTime.tryParse(data['deliveryDate']?.toString() ?? '') ?? DateTime.now(),
+          status: 'Pending',
+          driverName: '',
+          vehicleNumber: '',
+        );
+      }).toList();
+      _isLoading = false;
+      notifyListeners();
+    });
   }
 
-  void updateStatus(String id, String status) {
-    final idx = _deliveries.indexWhere((d) => d.id == id);
-    if (idx != -1) notifyListeners();
+  Future<void> updateStatus(String id, String status) async {
+    // Delivery update logic
+  }
+  
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 }
 
-// ─────────────────────────────────────────────────────
 // DASHBOARD PROVIDER
-// ─────────────────────────────────────────────────────
 class DashboardProvider extends ChangeNotifier {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   DashboardStats? _stats;
   bool _isLoading = false;
 
@@ -280,8 +367,20 @@ class DashboardProvider extends ChangeNotifier {
   Future<void> loadStats() async {
     _isLoading = true;
     notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 600));
-    _stats = MockData.dashboardStats;
+    
+    // Simple mock calculation for now since real calculation requires multiple reads
+    _stats = DashboardStats(
+      todayOrders: 12,
+      todayRevenue: 15400.0,
+      pendingOrders: 5,
+      pendingDeliveries: 3,
+      lowStockProducts: 3,
+      outstandingDebts: 4500.0,
+      revenueData: [],
+      topProducts: [],
+      topCustomers: [],
+    );
+    
     _isLoading = false;
     notifyListeners();
   }

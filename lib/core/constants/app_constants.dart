@@ -28,13 +28,9 @@ class AppConstants {
 
   // Categories
   static const List<String> productCategories = [
-    'All',
-    'Leafy Vegetable',
-    'Root Vegetable',
-    'Fruit Vegetable',
-    'Mushroom',
-    'Herbs',
-    'Imported Vegetable',
+    'Fruits',
+    'Vegetables',
+    'Mushrooms',
   ];
 
   // Freshness Levels
@@ -42,6 +38,8 @@ class AppConstants {
     'Fresh',
     'Very Fresh',
     'Premium Fresh',
+    'A',
+    'B',
   ];
 
   // Order Status

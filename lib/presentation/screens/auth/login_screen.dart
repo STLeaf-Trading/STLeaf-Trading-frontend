@@ -119,13 +119,19 @@ class _WideLayout extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 64, height: 64,
+                      width: 86,
+                      height: 86,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.mint.withOpacity(0.5), width: 2),
+                        color: AppColors.white,
                       ),
-                      child: const Icon(Icons.eco_rounded, color: AppColors.white, size: 36),
+                      child: ClipOval(
+                        child: Transform.scale(
+                          scale: 1.4,
+                          child: Image.asset('assets/images/logo.jpeg', fit: BoxFit.cover),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 40),
                     const Text(
@@ -208,7 +214,21 @@ class _NarrowLayout extends StatelessWidget {
               decoration: const BoxDecoration(gradient: AppColors.heroGradient),
               child: Column(
                 children: [
-                  const Icon(Icons.eco_rounded, color: AppColors.white, size: 48),
+                  Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.white.withOpacity(0.5), width: 2),
+                      color: AppColors.white,
+                    ),
+                    child: ClipOval(
+                      child: Transform.scale(
+                        scale: 1.4,
+                        child: Image.asset('assets/images/logo.jpeg', fit: BoxFit.cover),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   const Text('ST Leaf Trading',
                     style: TextStyle(color: AppColors.white, fontSize: 28, fontWeight: FontWeight.w800)),
@@ -324,30 +344,7 @@ class _FormPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  // Demo credentials
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.mint, borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.mintDark),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.info_outline_rounded, size: 14, color: AppColors.primary),
-                            SizedBox(width: 6),
-                            Text('Demo Credentials', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        _credRow('Admin', 'admin@stleaf.com', 'Admin123!'),
-                        const SizedBox(height: 6),
-                        _credRow('Customer', 'john@abcrestaurant.com', 'Customer123!'),
-                      ],
-                    ),
-                  ),
+
                 ],
               ),
             ),
@@ -357,17 +354,5 @@ class _FormPanel extends StatelessWidget {
     );
   }
 
-  Widget _credRow(String role, String email, String pass) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(4)),
-          child: Text(role, style: const TextStyle(color: AppColors.white, fontSize: 10, fontWeight: FontWeight.w600)),
-        ),
-        const SizedBox(width: 8),
-        Expanded(child: Text('$email / $pass', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))),
-      ],
-    );
-  }
+
 }

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class CustomerModel {
   final String id;
   final String customerCode;
@@ -11,7 +13,6 @@ class CustomerModel {
   final String creditTerm;
   final String status;
   final double outstandingBalance;
-  final DateTime createdAt;
 
   const CustomerModel({
     required this.id,
@@ -26,31 +27,31 @@ class CustomerModel {
     required this.creditTerm,
     required this.status,
     this.outstandingBalance = 0,
-    required this.createdAt,
   });
 
   double get availableCredit => creditLimit - outstandingBalance;
   bool get isActive => status == 'Active';
   bool get isCreditOverLimit => outstandingBalance >= creditLimit;
 
-  factory CustomerModel.fromJson(Map<String, dynamic> json) => CustomerModel(
-        id: json['id'] ?? '',
-        customerCode: json['customerCode'] ?? '',
-        companyName: json['companyName'] ?? '',
-        contactPerson: json['contactPerson'] ?? '',
-        phoneNumber: json['phoneNumber'] ?? '',
-        email: json['email'] ?? '',
-        businessRegistrationNo: json['businessRegistrationNo'] ?? '',
-        address: json['address'] ?? '',
-        creditLimit: (json['creditLimit'] ?? 0).toDouble(),
-        creditTerm: json['creditTerm'] ?? 'COD',
-        status: json['status'] ?? 'Active',
-        outstandingBalance: (json['outstandingBalance'] ?? 0).toDouble(),
-        createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-      );
+  factory CustomerModel.fromFirestore(DocumentSnapshot doc) {
+    final json = doc.data() as Map<String, dynamic>? ?? {};
+    return CustomerModel(
+      id: doc.id,
+      customerCode: json['customerCode'] ?? '',
+      companyName: json['companyName'] ?? '',
+      contactPerson: json['contactPerson'] ?? '',
+      phoneNumber: json['phoneNumber'] ?? '',
+      email: json['email'] ?? '',
+      businessRegistrationNo: json['businessRegistrationNo'] ?? '',
+      address: json['address'] ?? '',
+      creditLimit: (json['creditLimit'] ?? 0).toDouble(),
+      creditTerm: json['creditTerm'] ?? 'COD',
+      status: json['status'] ?? 'Active',
+      outstandingBalance: (json['outstandingBalance'] ?? 0).toDouble(),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
         'customerCode': customerCode,
         'companyName': companyName,
         'contactPerson': contactPerson,
@@ -62,6 +63,5 @@ class CustomerModel {
         'creditTerm': creditTerm,
         'status': status,
         'outstandingBalance': outstandingBalance,
-        'createdAt': createdAt.toIso8601String(),
       };
 }
