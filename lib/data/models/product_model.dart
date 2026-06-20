@@ -7,12 +7,13 @@ class ProductModel {
   final String category;
   final String description;
   final String precaution;
-  final String freshnessLevel;
+  final int freshnessLevel;
   final String packType;
   final double weightKg;
   final double price;
   final double? promotionPrice;
   final int stockQuantity;
+  final int lowStockLevel;
   final String? imageUrl;
   final String status;
 
@@ -29,13 +30,14 @@ class ProductModel {
     required this.price,
     this.promotionPrice,
     required this.stockQuantity,
+    this.lowStockLevel = 10,
     this.imageUrl,
     required this.status,
   });
 
   double get effectivePrice => promotionPrice ?? price;
   bool get hasPromotion => promotionPrice != null && promotionPrice! < price;
-  bool get isLowStock => stockQuantity <= 10;
+  bool get isLowStock => stockQuantity <= lowStockLevel;
   bool get isOutOfStock => stockQuantity == 0;
   bool get isActive => status == 'Active';
 
@@ -48,12 +50,15 @@ class ProductModel {
       category: json['category'] ?? '',
       description: json['description'] ?? '',
       precaution: json['precaution'] ?? '',
-      freshnessLevel: json['freshnessLevel'] ?? 'A',
+      freshnessLevel: (json['freshnessLevel'] is num) 
+          ? (json['freshnessLevel'] as num).toInt() 
+          : 10, // Fallback for old string records
       packType: json['packType'] ?? '',
       weightKg: (json['weightKg'] ?? 0).toDouble(),
       price: (json['price'] ?? 0).toDouble(),
       promotionPrice: json['promotionPrice']?.toDouble(),
       stockQuantity: json['stockQuantity'] ?? 0,
+      lowStockLevel: json['lowStockLevel'] ?? 10,
       imageUrl: json['imageUrl'],
       status: json['status'] ?? 'Active',
     );
@@ -71,6 +76,7 @@ class ProductModel {
         'price': price,
         'promotionPrice': promotionPrice,
         'stockQuantity': stockQuantity,
+        'lowStockLevel': lowStockLevel,
         'imageUrl': imageUrl,
         'status': status,
       };

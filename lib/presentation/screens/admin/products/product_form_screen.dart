@@ -30,9 +30,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _priceCtrl = TextEditingController();
   final _promoPriceCtrl = TextEditingController();
   final _stockCtrl = TextEditingController();
+  final _lowStockCtrl = TextEditingController(text: '10');
   final _weightCtrl = TextEditingController();
 
-  String _selectedFreshness = AppConstants.freshnessLevels[0];
+  double _freshnessValue = 10;
   bool _hasPromo = false;
   bool _isSaving = false;
   
@@ -63,10 +64,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _priceCtrl.text = p.price.toString();
     _weightCtrl.text = p.weightKg.toString();
     _stockCtrl.text = p.stockQuantity.toString();
+    _lowStockCtrl.text = p.lowStockLevel.toString();
     _existingImageUrl = p.imageUrl;
     
     setState(() {
-      _selectedFreshness = p.freshnessLevel;
+      _freshnessValue = p.freshnessLevel.toDouble();
       _hasPromo = p.hasPromotion;
       if (p.hasPromotion) _promoPriceCtrl.text = p.promotionPrice.toString();
     });
@@ -77,7 +79,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _itemCodeCtrl.dispose(); _nameCtrl.dispose(); _categoryCtrl.dispose();
     _descCtrl.dispose(); _precautionCtrl.dispose(); _packTypeCtrl.dispose();
     _priceCtrl.dispose(); _promoPriceCtrl.dispose(); _stockCtrl.dispose();
-    _weightCtrl.dispose();
+    _lowStockCtrl.dispose(); _weightCtrl.dispose();
     super.dispose();
   }
 
@@ -143,12 +145,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       category: _categoryCtrl.text.trim(),
       description: _descCtrl.text.trim(),
       precaution: _precautionCtrl.text.trim(),
-      freshnessLevel: _selectedFreshness,
+      freshnessLevel: _freshnessValue.toInt(),
       packType: _packTypeCtrl.text.trim(),
       weightKg: double.tryParse(_weightCtrl.text) ?? 0,
       price: double.tryParse(_priceCtrl.text) ?? 0,
       promotionPrice: _hasPromo && _promoPriceCtrl.text.isNotEmpty ? double.tryParse(_promoPriceCtrl.text) : null,
       stockQuantity: int.tryParse(_stockCtrl.text) ?? 0,
+      lowStockLevel: int.tryParse(_lowStockCtrl.text) ?? 10,
       imageUrl: finalImageUrl,
       status: 'Active',
     );
@@ -209,10 +212,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         Expanded(flex: 3, child: _FormSection(
                           itemCodeCtrl: _itemCodeCtrl, nameCtrl: _nameCtrl, categoryCtrl: _categoryCtrl,
                           descCtrl: _descCtrl, precautionCtrl: _precautionCtrl, packTypeCtrl: _packTypeCtrl,
-                          priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl, stockCtrl: _stockCtrl, weightCtrl: _weightCtrl,
-                          selectedFreshness: _selectedFreshness, hasPromo: _hasPromo,
-                          onFreshnessChanged: (v) => setState(() => _selectedFreshness = v!),
-                          onPromoToggled: (v) => setState(() => _hasPromo = v!),
+                          priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl, stockCtrl: _stockCtrl, lowStockCtrl: _lowStockCtrl, weightCtrl: _weightCtrl,
+                          freshnessValue: _freshnessValue, hasPromo: _hasPromo,
+                          onFreshnessChanged: (v) => setState(() => _freshnessValue = v),
+                          onPromoToggled: (v) => setState(() => _hasPromo = v ?? false),
                           onImagePick: _showImagePickerModal,
                           imageBytes: _selectedImageBytes,
                           existingImageUrl: _existingImageUrl,
@@ -220,7 +223,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         const SizedBox(width: 24),
                         SizedBox(width: 240, child: _PreviewCard(
                           name: _nameCtrl.text, category: _categoryCtrl.text,
-                          freshness: _selectedFreshness, price: _priceCtrl.text,
+                          freshnessLevel: _freshnessValue.toInt(), price: _priceCtrl.text,
                           promoPrice: _hasPromo ? _promoPriceCtrl.text : null,
                           imageBytes: _selectedImageBytes,
                           existingImageUrl: _existingImageUrl,
@@ -231,10 +234,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   return _FormSection(
                     itemCodeCtrl: _itemCodeCtrl, nameCtrl: _nameCtrl, categoryCtrl: _categoryCtrl,
                     descCtrl: _descCtrl, precautionCtrl: _precautionCtrl, packTypeCtrl: _packTypeCtrl,
-                    priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl, stockCtrl: _stockCtrl, weightCtrl: _weightCtrl,
-                    selectedFreshness: _selectedFreshness, hasPromo: _hasPromo,
-                    onFreshnessChanged: (v) => setState(() => _selectedFreshness = v!),
-                    onPromoToggled: (v) => setState(() => _hasPromo = v!),
+                    priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl, stockCtrl: _stockCtrl,
+                    lowStockCtrl: _lowStockCtrl, weightCtrl: _weightCtrl,
+                    freshnessValue: _freshnessValue, hasPromo: _hasPromo,
+                    onFreshnessChanged: (v) => setState(() => _freshnessValue = v),
+                    onPromoToggled: (v) => setState(() => _hasPromo = v ?? false),
                     onImagePick: _showImagePickerModal,
                     imageBytes: _selectedImageBytes,
                     existingImageUrl: _existingImageUrl,
@@ -300,10 +304,10 @@ class _PickerOption extends StatelessWidget {
 
 class _FormSection extends StatelessWidget {
   final TextEditingController itemCodeCtrl, nameCtrl, categoryCtrl, descCtrl, precautionCtrl, packTypeCtrl,
-      priceCtrl, promoPriceCtrl, stockCtrl, weightCtrl;
-  final String selectedFreshness;
+      priceCtrl, promoPriceCtrl, stockCtrl, lowStockCtrl, weightCtrl;
+  final double freshnessValue;
   final bool hasPromo;
-  final ValueChanged<String?> onFreshnessChanged;
+  final ValueChanged<double> onFreshnessChanged;
   final ValueChanged<bool?> onPromoToggled;
   final VoidCallback onImagePick;
   final Uint8List? imageBytes;
@@ -312,8 +316,9 @@ class _FormSection extends StatelessWidget {
   const _FormSection({
     required this.itemCodeCtrl, required this.nameCtrl, required this.categoryCtrl,
     required this.descCtrl, required this.precautionCtrl, required this.packTypeCtrl,
-    required this.priceCtrl, required this.promoPriceCtrl, required this.stockCtrl, required this.weightCtrl,
-    required this.selectedFreshness, required this.hasPromo,
+    required this.priceCtrl, required this.promoPriceCtrl, required this.stockCtrl,
+    required this.lowStockCtrl, required this.weightCtrl,
+    required this.freshnessValue, required this.hasPromo,
     required this.onFreshnessChanged, required this.onPromoToggled,
     required this.onImagePick, this.imageBytes, this.existingImageUrl,
   });
@@ -418,16 +423,28 @@ class _FormSection extends StatelessWidget {
                 Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Freshness Level *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Freshness Level *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                        Text('${freshnessValue.toInt()} / 10', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                      ],
+                    ),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: selectedFreshness,
-                      items: AppConstants.freshnessLevels.map((f) =>
-                        DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 14)))).toList(),
-                      onChanged: onFreshnessChanged,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: AppColors.primary,
+                        inactiveTrackColor: AppColors.border,
+                        thumbColor: AppColors.primary,
+                        overlayColor: AppColors.primary.withOpacity(0.2),
+                      ),
+                      child: Slider(
+                        value: freshnessValue,
+                        min: 0,
+                        max: 10,
+                        divisions: 10,
+                        label: freshnessValue.toInt().toString(),
+                        onChanged: onFreshnessChanged,
                       ),
                     ),
                   ],
@@ -462,6 +479,10 @@ class _FormSection extends StatelessWidget {
                 Expanded(child: AppTextField(label: 'Stock Quantity *', hint: '100', controller: stockCtrl,
                   keyboardType: TextInputType.number,
                   validator: (v) => (v == null || v.isEmpty) ? 'Stock is required' : null)),
+                const SizedBox(width: 16),
+                Expanded(child: AppTextField(label: 'Low Stock Level', hint: '10', controller: lowStockCtrl,
+                  keyboardType: TextInputType.number,
+                  validator: (v) => (v == null || v.isEmpty) ? 'Required' : null)),
               ]),
               const SizedBox(height: 16),
               Row(
@@ -484,13 +505,14 @@ class _FormSection extends StatelessWidget {
 }
 
 class _PreviewCard extends StatelessWidget {
-  final String name, category, freshness;
+  final String name, category;
+  final int freshnessLevel;
   final String price;
   final String? promoPrice;
   final Uint8List? imageBytes;
   final String? existingImageUrl;
 
-  const _PreviewCard({required this.name, required this.category, required this.freshness,
+  const _PreviewCard({required this.name, required this.category, required this.freshnessLevel,
     required this.price, this.promoPrice, this.imageBytes, this.existingImageUrl});
 
   @override
@@ -522,7 +544,7 @@ class _PreviewCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(category.isEmpty ? 'Category' : category, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
           const SizedBox(height: 8),
-          FreshnessBadge(level: freshness),
+          FreshnessBadge(level: freshnessLevel),
           const SizedBox(height: 10),
           if (promoPrice != null && promoPrice!.isNotEmpty) ...[
             Text('RM $price', style: const TextStyle(fontSize: 12, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),

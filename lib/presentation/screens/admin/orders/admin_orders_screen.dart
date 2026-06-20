@@ -144,7 +144,8 @@ class _OrderCard extends StatelessWidget {
             const SizedBox(width: 8),
             _infoChip(Icons.payment_rounded, order.paymentMethod),
             const Spacer(),
-            StatusBadge(status: order.paymentStatus),
+            if (order.paymentStatus != 'Pending')
+              StatusBadge(status: order.paymentStatus),
           ]),
         ],
       ),
@@ -270,34 +271,54 @@ class _OrderItemsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final products = context.watch<ProductProvider>().products;
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Order Items (${order.items.length})', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16),
-          ...order.items.map((item) => Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.divider))),
-            child: Row(
-              children: [
-                Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.eco_rounded, color: AppColors.primary, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(item.product?.name ?? 'Product', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    Text('${item.quantity} x RM ${item.price.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                  ]),
-                ),
-                Text(formatter.format(item.subtotal), style: const TextStyle(fontWeight: FontWeight.w700)),
-              ],
-            ),
-          )),
+          ...order.items.map((item) {
+            final pIdx = products.indexWhere((p) => p.id == item.productId);
+            final pData = pIdx >= 0 ? products[pIdx] : null;
+
+            final name = item.product?.name ?? (item.productName == 'Unknown' && pData != null ? pData.name : (item.productName == 'Unknown' ? 'Item' : item.productName));
+            final code = item.product?.itemCode ?? (item.itemCode.isEmpty && pData != null ? pData.itemCode : item.itemCode);
+            final unit = item.product?.packType ?? (item.packType == 'kg' && pData != null ? pData.packType : item.packType);
+
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.divider))),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.eco_rounded, color: AppColors.primary, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('$name ($code)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      const SizedBox(height: 2),
+                      Text('${item.quantity} $unit x RM ${item.price.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                      if (item.remarks != null && item.remarks!.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: AppColors.warningLight, borderRadius: BorderRadius.circular(6)),
+                          child: Text('Note: ${item.remarks}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.warning)),
+                        ),
+                      ],
+                    ]),
+                  ),
+                  Text(formatter.format(item.subtotal), style: const TextStyle(fontWeight: FontWeight.w700)),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -332,13 +353,130 @@ class _OrderSummaryCard extends StatelessWidget {
           ]),
           const SizedBox(height: 16),
           Row(children: [
-            StatusBadge(status: order.paymentStatus),
-            const SizedBox(width: 8),
+            if (order.paymentStatus != 'Pending') ...[
+              StatusBadge(status: order.paymentStatus),
+              const SizedBox(width: 8),
+            ],
             StatusBadge(status: order.orderStatus),
           ]),
+          // Show cancellation reason if cancelled
+          if (order.orderStatus == 'Cancelled' && order.cancellationReason != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.dangerLight,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Cancellation Reason', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.danger)),
+                const SizedBox(height: 4),
+                Text(order.cancellationReason!, style: const TextStyle(fontSize: 13)),
+              ]),
+            ),
+          ],
+          const SizedBox(height: 24),
+          _buildActionButtons(context),
+          // Admin cancel button (any stage except already cancelled)
+          if (order.orderStatus != 'Cancelled' && order.orderStatus != 'Delivered') ...[
+            const SizedBox(height: 12),
+            AppButton(
+              label: 'Cancel Order',
+              icon: Icons.cancel_outlined,
+              isDanger: true,
+              width: double.infinity,
+              onPressed: () async {
+                final reasonCtrl = TextEditingController();
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: const Text('Cancel Order?', style: TextStyle(fontWeight: FontWeight.w700)),
+                    content: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('Enter a reason for cancelling this order (admin):'),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: reasonCtrl,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          hintText: 'Reason...',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ]),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Go Back')),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+                        child: const Text('Cancel Order', style: TextStyle(color: AppColors.white)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true && context.mounted) {
+                  final reason = reasonCtrl.text.trim().isEmpty ? 'Cancelled by admin' : reasonCtrl.text.trim();
+                  await context.read<OrderProvider>().cancelOrder(order.id, reason);
+                }
+                reasonCtrl.dispose();
+              },
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Widget _buildActionButtons(BuildContext context) {
+    final provider = context.read<OrderProvider>();
+    final isPickup = order.deliveryFee == 0;
+
+    if (order.orderStatus == 'Pending') {
+      return AppButton(
+        label: 'Confirm Order',
+        icon: Icons.check_circle_outline_rounded,
+        width: double.infinity,
+        onPressed: () => provider.updateStatus(order.id, 'Confirmed'),
+      );
+    }
+    
+    if (order.orderStatus == 'Confirmed') {
+      return AppButton(
+        label: 'Mark as Packed',
+        icon: Icons.inventory_2_outlined,
+        width: double.infinity,
+        onPressed: () => provider.updateStatus(order.id, 'Packed'),
+      );
+    }
+    
+    if (order.orderStatus == 'Packed') {
+      if (isPickup) {
+        return AppButton(
+          label: 'Picked Up / Delivered',
+          icon: Icons.done_all_rounded,
+          width: double.infinity,
+          onPressed: () => provider.updateStatus(order.id, 'Delivered'),
+        );
+      } else {
+        return AppButton(
+          label: 'Out for Delivery',
+          icon: Icons.local_shipping_outlined,
+          width: double.infinity,
+          onPressed: () => provider.updateStatus(order.id, 'Out For Delivery'),
+        );
+      }
+    }
+    
+    if (order.orderStatus == 'Out For Delivery') {
+      return AppButton(
+        label: 'Mark as Delivered',
+        icon: Icons.done_all_rounded,
+        width: double.infinity,
+        onPressed: () => provider.updateStatus(order.id, 'Delivered'),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _row(String label, String value) {

@@ -17,7 +17,9 @@ import '../presentation/screens/customer/products/product_detail_screen.dart';
 import '../presentation/screens/customer/cart/cart_screen.dart';
 import '../presentation/screens/customer/checkout/checkout_screen.dart';
 import '../presentation/screens/customer/orders/my_orders_screen.dart';
+import '../presentation/screens/customer/orders/cancel_order_screen.dart';
 import '../presentation/screens/customer/profile/profile_screen.dart';
+import '../presentation/screens/customer/profile/edit_profile_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/login',
@@ -62,6 +64,9 @@ final router = GoRouter(
     GoRoute(path: '/shop/orders', builder: (ctx, state) => const MyOrdersScreen()),
     GoRoute(path: '/shop/orders/:id',
       builder: (ctx, state) => OrderDetailScreen(orderId: state.pathParameters['id']!)),
+    GoRoute(path: '/shop/orders/:id/cancel',
+      builder: (ctx, state) => CancelOrderScreen(orderId: state.pathParameters['id']!)),
     GoRoute(path: '/shop/profile', builder: (ctx, state) => const ProfileScreen()),
+    GoRoute(path: '/shop/edit-profile', builder: (ctx, state) => const EditProfileScreen()),
   ],
 );

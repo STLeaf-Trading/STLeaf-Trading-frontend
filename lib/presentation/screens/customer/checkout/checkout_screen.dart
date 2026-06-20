@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
@@ -10,6 +11,7 @@ import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/providers/auth_provider.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart';
+import 'package:stleaf_trading/providers/settings_provider.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -19,14 +21,51 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  String _paymentMethod = 'Cash';
+  String _paymentMethod = 'Cash / COD';
+  String _deliveryMethod = 'Deliver by Company';
   bool _isPlacing = false;
 
   Future<void> _placeOrder() async {
     setState(() => _isPlacing = true);
     final cart = context.read<CartProvider>();
     final auth = context.read<AuthProvider>();
+    final customerProvider = context.read<CustomerProvider>();
     final orderProvider = context.read<OrderProvider>();
+    final settings = context.read<SettingsProvider>();
+
+    final double actualDeliveryFee = _deliveryMethod == 'Pickup' ? 0.0 : settings.deliveryFee;
+    final double actualTotalAmount = cart.subtotal + actualDeliveryFee;
+
+    // Address validation
+    if (_deliveryMethod == 'Deliver by Company') {
+      final uid = auth.currentUser?.id;
+      if (uid == null) {
+        setState(() => _isPlacing = false);
+        return;
+      }
+      
+      final doc = await FirebaseFirestore.instance.collection('customers').doc(uid).get();
+      final address = doc.data()?['address'] as String? ?? '';
+      
+      if (address.trim().isEmpty) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Address Required'),
+            content: const Text('Please update your delivery address in your Profile before placing an order.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              AppButton(label: 'Go to Profile', onPressed: () {
+                Navigator.pop(ctx);
+                context.go('/shop/profile');
+              }),
+            ],
+          ),
+        );
+        setState(() => _isPlacing = false);
+        return;
+      }
+    }
 
     final order = OrderModel(
       id: const Uuid().v4(),
@@ -36,19 +75,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       orderDate: DateTime.now(),
       deliveryDate: DateTime.now().add(const Duration(days: 1)),
       subtotal: cart.subtotal,
-      deliveryFee: cart.deliveryFee,
-      totalAmount: cart.total,
+      deliveryFee: actualDeliveryFee,
+      totalAmount: actualTotalAmount,
       paymentMethod: _paymentMethod,
       paymentStatus: 'Pending',
       orderStatus: 'Pending',
       items: cart.items.map((i) => OrderItemModel(
-        productId: i.product.id, product: i.product,
-        quantity: i.quantity, price: i.product.effectivePrice, subtotal: i.subtotal,
+        productId: i.product.id,
+        productName: i.product.name,
+        itemCode: i.product.itemCode,
+        packType: i.product.packType,
+        product: i.product,
+        quantity: i.quantity,
+        price: i.product.effectivePrice,
+        subtotal: i.subtotal,
+        remarks: i.remarks,
       )).toList(),
     );
 
     await orderProvider.placeOrder(order);
-    cart.clear();
+    await cart.clear();
 
     if (mounted) {
       setState(() => _isPlacing = false);
@@ -92,6 +138,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final settings = context.watch<SettingsProvider>();
+    
+    final double actualDeliveryFee = _deliveryMethod == 'Pickup' ? 0.0 : settings.deliveryFee;
+    final double actualTotalAmount = cart.subtotal + actualDeliveryFee;
 
     return CustomerLayout(
       currentRoute: '/shop',
@@ -112,8 +162,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 _orderItemsCard(cart),
               ],
             );
-            final summary = _OrderSummary(cart: cart, paymentMethod: _paymentMethod,
-              isPlacing: _isPlacing, onPlace: _placeOrder);
+            final summary = _OrderSummary(
+              cart: cart, 
+              paymentMethod: _paymentMethod,
+              deliveryFee: actualDeliveryFee,
+              totalAmount: actualTotalAmount,
+              isPlacing: _isPlacing, 
+              onPlace: _placeOrder,
+            );
 
             if (isWide) {
               return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -139,21 +195,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Text('Delivery Information', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
         ]),
         const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(10)),
-          child: Row(children: [
-            const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Expanded(child: Text(AppConstants.deliveryPolicy,
-              style: const TextStyle(fontSize: 13, color: AppColors.primary))),
-          ]),
+        Row(
+          children: [
+            Expanded(
+              child: RadioListTile<String>(
+                value: 'Pickup',
+                groupValue: _deliveryMethod,
+                onChanged: (v) => setState(() => _deliveryMethod = v!),
+                activeColor: AppColors.primary,
+                title: const Text('Pickup', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                tileColor: _deliveryMethod == 'Pickup' ? AppColors.mint : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: RadioListTile<String>(
+                value: 'Deliver by Company',
+                groupValue: _deliveryMethod,
+                onChanged: (v) => setState(() => _deliveryMethod = v!),
+                activeColor: AppColors.primary,
+                title: const Text('Deliver by Company', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                tileColor: _deliveryMethod == 'Deliver by Company' ? AppColors.mint : null,
+              ),
+            ),
+          ],
         ),
+        if (_deliveryMethod == 'Deliver by Company') ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text(AppConstants.deliveryPolicy,
+                style: const TextStyle(fontSize: 13, color: AppColors.primary))),
+            ]),
+          ),
+        ],
         const SizedBox(height: 14),
         Text('Recipient: ${auth.currentUser?.name ?? ""}',
           style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        const Text('Delivery: Tomorrow morning', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+        Text('${_deliveryMethod == 'Pickup' ? 'Pickup' : 'Delivery'}: Tomorrow morning', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
       ]),
     );
   }
@@ -215,10 +301,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 class _OrderSummary extends StatelessWidget {
   final CartProvider cart;
   final String paymentMethod;
+  final double deliveryFee;
+  final double totalAmount;
   final bool isPlacing;
   final VoidCallback onPlace;
 
-  const _OrderSummary({required this.cart, required this.paymentMethod, required this.isPlacing, required this.onPlace});
+  const _OrderSummary({
+    required this.cart, 
+    required this.paymentMethod, 
+    required this.deliveryFee,
+    required this.totalAmount,
+    required this.isPlacing, 
+    required this.onPlace
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -228,12 +323,12 @@ class _OrderSummary extends StatelessWidget {
         const SizedBox(height: 16),
         _row('Subtotal', 'RM ${cart.subtotal.toStringAsFixed(2)}'),
         const SizedBox(height: 8),
-        _row('Delivery Fee', 'RM ${cart.deliveryFee.toStringAsFixed(2)}'),
+        _row('Delivery Fee', 'RM ${deliveryFee.toStringAsFixed(2)}'),
         _row('Payment', paymentMethod),
         const Divider(height: 24),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           const Text('Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-          Text('RM ${cart.total.toStringAsFixed(2)}',
+          Text('RM ${totalAmount.toStringAsFixed(2)}',
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primary)),
         ]),
         const SizedBox(height: 20),

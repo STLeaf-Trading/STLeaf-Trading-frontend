@@ -1,9 +1,8 @@
-# 🌿 ST Leaf Trading — Frontend (Flutter)
+# 🌿 ST Leaf Trading — Flutter App
 
-A **production-ready Flutter frontend** for ST Leaf Trading, a vegetable wholesale supplier based in Melaka, Malaysia.
+A **production-ready Flutter app** for **ST Leaf Trading**, a fresh vegetable wholesale supplier based in Jasin, Melaka, Malaysia. The platform supports a full dual-portal system — an **Admin Portal** for operations management and a **Customer Portal** for ordering fresh produce.
 
-> **Repository:** `stleaf-frontend` (this repo)  
-> **Backend repo:** `stleaf-backend` *(Spring Boot 3, to be built in Phase 2)*
+> **Architecture:** Firebase-powered (Firestore + Auth + Storage). No traditional REST backend — the Flutter app communicates directly with Firebase services via real-time listeners.
 
 ---
 
@@ -13,7 +12,19 @@ A **production-ready Flutter frontend** for ST Leaf Trading, a vegetable wholesa
 |---|---|
 | 🌐 Web (Admin + Customer) | ✅ Supported |
 | 📱 Android (Customer App) | ✅ Supported |
-| 🍎 iOS | Future |
+| 🍎 iOS | Planned |
+
+---
+
+## 🏪 Business Info
+
+| Detail | Value |
+|---|---|
+| **Company** | ST Leaf Trading |
+| **Location** | J1809 Pasar Jasin, 77000 Jasin, Melaka, Malaysia |
+| **WhatsApp** | 011-2889 2991 |
+| **Email** | stleaf9193@gmail.com |
+| **Hours** | Mon–Tue & Thu–Sun: 7:00 AM – 3:00 PM · Wed: Closed |
 
 ---
 
@@ -24,8 +35,9 @@ A **production-ready Flutter frontend** for ST Leaf Trading, a vegetable wholesa
 | Primary Green | `#1B6B35` |
 | Accent Green | `#4CAF50` |
 | Mint Background | `#E8F5E9` |
-| White | `#FFFFFF` |
+| Danger Red | `#D32F2F` |
 | Font | Inter (Google Fonts) |
+| Design Language | Material 3 |
 
 ---
 
@@ -33,34 +45,34 @@ A **production-ready Flutter frontend** for ST Leaf Trading, a vegetable wholesa
 
 ```
 lib/
-├── main.dart                        # App entry point
+├── main.dart
 ├── core/
 │   ├── theme/
-│   │   ├── app_colors.dart          # All color constants
-│   │   └── app_theme.dart           # Material 3 theme config
+│   │   ├── app_colors.dart
+│   │   └── app_theme.dart
 │   └── constants/
-│       └── app_constants.dart       # App-wide constants
+│       └── app_constants.dart
 ├── data/
-│   ├── models/                      # Dart model classes
-│   │   ├── user_model.dart
-│   │   ├── product_model.dart
-│   │   ├── customer_model.dart
-│   │   ├── order_model.dart
-│   │   └── inventory_model.dart     # Inventory, Delivery, Payment, Dashboard
-│   └── mock/
-│       └── mock_data.dart           # All mock data (12 products, 5 customers, 5 orders)
-├── providers/                       # State management (Provider)
-│   ├── auth_provider.dart
-│   └── app_providers.dart           # Product, Cart, Order, Customer, Inventory, Delivery, Dashboard
+│   └── models/
+│       ├── user_model.dart
+│       ├── product_model.dart
+│       ├── customer_model.dart
+│       ├── order_model.dart         # Includes cancellationReason field
+│       └── inventory_model.dart
+├── providers/
+│   ├── auth_provider.dart           # Login, register, deleteAccount
+│   ├── app_providers.dart           # Product, Cart, Order, Customer, Inventory, Delivery, Dashboard
+│   └── settings_provider.dart       # Delivery fee (Firestore-synced)
 ├── routes/
 │   └── app_router.dart              # GoRouter with auth guards
 └── presentation/
     ├── widgets/
     │   ├── common/
-    │   │   └── common_widgets.dart  # Button, Badge, Card, TextField, EmptyState, StatCard
+    │   │   ├── common_widgets.dart
+    │   │   └── contact_support_widget.dart
     │   └── layout/
-    │       ├── admin_layout.dart    # Sidebar (desktop) + Drawer (mobile)
-    │       └── customer_layout.dart # AppBar + BottomNav
+    │       ├── admin_layout.dart
+    │       └── customer_layout.dart
     └── screens/
         ├── auth/
         │   ├── login_screen.dart
@@ -79,8 +91,13 @@ lib/
             ├── products/product_detail_screen.dart
             ├── cart/cart_screen.dart
             ├── checkout/checkout_screen.dart
-            ├── orders/my_orders_screen.dart
-            └── profile/profile_screen.dart
+            ├── orders/
+            │   ├── my_orders_screen.dart
+            │   └── cancel_order_screen.dart
+            └── profile/
+                ├── profile_screen.dart
+                ├── edit_profile_screen.dart
+                └── legal_screen.dart
 ```
 
 ---
@@ -93,15 +110,16 @@ lib/
 |---|---|
 | Flutter SDK | 3.0.0+ |
 | Dart | 3.0.0+ |
-| Android Studio | Latest |
+| Android Studio / VS Code | Latest |
 | Chrome (for web) | Latest |
+| Firebase Project | Active |
 
 ### Install & Run
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-org/stleaf-frontend.git
-cd stleaf-frontend
+git clone <your-repo-url>
+cd STLeaf_Trading
 
 # 2. Install dependencies
 flutter pub get
@@ -118,13 +136,20 @@ flutter build web --release
 
 ---
 
-## 🔐 Demo Login Credentials
+## 🔐 Firebase Setup
 
-| Role | Email | Password |
-|---|---|---|
-| **Admin** | `admin@stleaf.com` | `Admin123!` |
-| **Customer** | `john@abcrestaurant.com` | `Customer123!` |
-| **Customer 2** | `mary@goldenpalace.com` | `Customer123!` |
+This project uses **Firebase** as its backend. You need to configure your own Firebase project:
+
+1. Create a project at [Firebase Console](https://console.firebase.google.com/).
+2. Enable **Authentication** (Email/Password).
+3. Enable **Cloud Firestore**.
+4. Enable **Firebase Storage**.
+5. Add your `google-services.json` (Android) and `GoogleService-Info.plist` (iOS).
+6. For Web, update `web/index.html` with your Firebase config.
+7. Apply the Firestore security rules from the backend repo.
+
+### Admin Account Setup
+Create a user in Firebase Auth, then manually add a Firestore document in `users/{uid}` with `role: "ADMIN"`.
 
 ---
 
@@ -133,33 +158,39 @@ flutter build web --release
 ### Authentication
 | Screen | Description |
 |---|---|
-| Login | Two-panel (desktop), hero banner, demo credentials shown |
-| Register | Business info + credentials form |
+| Login | Two-panel desktop layout, mobile-responsive |
+| Register | Company name, contact person, phone, email, password |
 
 ### Admin Portal
 | Screen | Description |
 |---|---|
-| Dashboard | KPI cards, weekly revenue chart, top products pie, recent orders |
-| Products | Responsive grid, category/search filter, promo badges, CRUD |
-| Product Form | Create/edit with live card preview |
-| Inventory | Stock progress bars, reorder alerts, inline editing |
-| Customers | CRM list with credit bars, search |
-| Customer Detail | Full profile + credit overview |
-| Orders | Status filter tabs, order pipeline |
-| Order Detail | Status stepper, items, payment summary |
-| Delivery | Status-grouped kanban board |
-| Reports | Bar chart, top products/customers tables |
+| Dashboard | KPI cards (today's orders/revenue, pending, low stock), 7-day revenue chart with real Firestore data, top products pie chart, top customers, recent orders, Export CSV |
+| Store Settings | Admin-configurable delivery fee (saves to Firestore, syncs to checkout) |
+| Products | Responsive grid, category + search filter, freshness level (0–10 slider), CRUD, image upload |
+| Product Form | Create/edit with item code uniqueness check, freshness level slider, unit, low stock threshold |
+| Inventory | Stock progress bars, user-defined low stock level, out-of-stock detection, edit page |
+| Customers | CRM list with search |
+| Customer Detail | Full profile + outstanding balance |
+| Orders | Status filter tabs, order pipeline, Confirm → Packed → Delivered flow |
+| Order Detail | Status stepper, items, payment summary, action buttons (Confirm/Packed/Delivered), admin Cancel with reason, shows cancellation reason |
+| Delivery | Delivery-only orders (deliveryFee > 0), status tracking |
+| Reports | Analytics charts and tables |
 
 ### Customer Portal
 | Screen | Description |
 |---|---|
-| Home | Hero banner, category filter pills, product grid |
-| Product Detail | Freshness badge, precaution note, qty selector |
+| Home / Shop | Hero banner, category filter pills, product grid, floating contact widget |
+| Product Detail | Freshness badge (0–10 scale), qty selector, add to cart → auto-returns to shop |
 | Cart | Item list, qty controls, subtotal |
-| Checkout | Delivery info, payment method selector, success dialog |
-| My Orders | Progress bars, status filter chips |
-| Order Detail | Vertical status stepper |
-| Profile | Stats, account options, logout |
+| Checkout | Choose Pickup (free) or Company Delivery (requires address, fee set by admin), Cash/COD payment |
+| My Orders | Progress bars, status filter chips, Cancel button (Pending/Confirmed only) |
+| Order Detail | Vertical status stepper, cancellation reason display, Cancel Order button |
+| Cancel Order | Reason selector (preset + custom "Other" option), confirmation dialog |
+| Profile | Stats, Edit Profile, My Orders, Contact Support, T&C, Privacy Policy, Delete Account, Logout |
+| Edit Profile | Update company name, contact person, phone, delivery address (email read-only) |
+| Terms & Conditions | 10-section T&C specific to ST Leaf Trading |
+| Privacy Policy | 10-section PDPA-aligned privacy statement covering data collection, retention, user rights |
+| Contact Support | WhatsApp (011-2889 2991), Phone, Email (stleaf9193@gmail.com), company address + hours |
 
 ---
 
@@ -169,80 +200,90 @@ flutter build web --release
 |---|---|
 | `go_router` | Client-side routing with auth guards |
 | `provider` | State management (ChangeNotifier) |
+| `firebase_core` | Firebase initialization |
+| `firebase_auth` | User authentication & account management |
+| `cloud_firestore` | Real-time NoSQL database |
+| `firebase_storage` | Product image uploads |
 | `fl_chart` | Revenue & product charts |
 | `google_fonts` | Inter typography |
-| `shared_preferences` | Auth token persistence |
-| `intl` | Date & currency formatting |
-| `uuid` | Generate unique IDs |
-| `http` | HTTP client (for real API) |
-
----
-
-## 🔄 Switching from Mock to Real API
-
-All data is currently served from `lib/data/mock/mock_data.dart`.
-
-To connect to the Spring Boot backend:
-
-1. Update `.env` (create if not exists):
-```env
-VITE_API_BASE_URL=http://localhost:8080
-```
-
-2. In `lib/core/constants/app_constants.dart`, set:
-```dart
-static const bool useMock = false;
-```
-
-3. Update each provider in `lib/providers/app_providers.dart` to call the real API:
-```dart
-// Before (mock)
-_products = List.from(MockData.products);
-
-// After (real API)
-final response = await http.get(Uri.parse('${AppConstants.apiBaseUrl}/products'));
-_products = (jsonDecode(response.body) as List).map((e) => ProductModel.fromJson(e)).toList();
-```
+| `intl` | Date & currency formatting (RM) |
+| `uuid` | Unique order ID generation |
+| `url_launcher` | WhatsApp & phone links in contact widget |
+| `image_picker` | Product image selection for admin |
+| `pdf` & `printing` | Generating and downloading PDF order reports |
 
 ---
 
 ## 🛣 Routes
 
 ```
-/login                     → Login page
-/register                  → Register page
+/login                        → Login page
+/register                     → Register page
 
-/admin/dashboard           → Admin: Dashboard (KPI + Charts)
-/admin/products            → Admin: Products list
-/admin/products/new        → Admin: Add product form
-/admin/products/:id/edit   → Admin: Edit product form
-/admin/inventory           → Admin: Inventory management
-/admin/customers           → Admin: Customers list
-/admin/customers/:id       → Admin: Customer detail
-/admin/orders              → Admin: Orders management
-/admin/orders/:id          → Admin: Order detail
-/admin/delivery            → Admin: Delivery tracking
-/admin/reports             → Admin: Reports & analytics
+/admin/dashboard              → Dashboard (KPIs + Charts + Export CSV)
+/admin/products               → Products list
+/admin/products/new           → Add product form
+/admin/products/:id/edit      → Edit product form
+/admin/inventory              → Inventory management
+/admin/customers              → Customers list
+/admin/customers/:id          → Customer detail
+/admin/orders                 → Orders management
+/admin/orders/:id             → Order detail (with Cancel button)
+/admin/delivery               → Delivery tracking (fee > 0 only)
+/admin/reports                → Reports & analytics
 
-/shop                      → Customer: Product catalog
-/shop/products/:id         → Customer: Product detail
-/shop/cart                 → Customer: Shopping cart
-/shop/checkout             → Customer: Checkout
-/shop/orders               → Customer: My orders
-/shop/orders/:id           → Customer: Order detail
-/shop/profile              → Customer: Profile
+/shop                         → Customer: Product catalog
+/shop/products/:id            → Customer: Product detail
+/shop/cart                    → Customer: Shopping cart
+/shop/checkout                → Customer: Checkout (Pickup / Delivery)
+/shop/orders                  → Customer: My orders
+/shop/orders/:id              → Customer: Order detail
+/shop/orders/:id/cancel       → Customer: Cancel order (reason screen)
+/shop/profile                 → Customer: Profile
+/shop/edit-profile            → Customer: Edit profile & address
 ```
+
+---
+
+## 🔄 Order Status Flow
+
+```
+Pending → Confirmed → Packed → Out For Delivery → Delivered
+                                       ↑
+                         (Only for orders with deliveryFee > 0)
+
+Any stage → Cancelled (Admin can cancel at any stage)
+Pending / Confirmed → Cancelled (Customer can self-cancel)
+```
+
+- **Cancellation reasons** are stored in Firestore and displayed on both customer and admin order detail screens.
+- **Order history is preserved** even after a customer deletes their account (for tax/legal compliance).
+
+---
+
+## 💰 Delivery & Payment
+
+- **Pickup** — Customer collects from J1809 Pasar Jasin. Delivery fee = RM 0.00.
+- **Company Delivery** — Requires customer to have a saved address. Fee is set by admin in Store Settings and persisted in Firestore (`settings/general`).
+- **Payment Method** — Cash / COD only.
+- **Delivery Page (Admin)** — Only shows orders where `deliveryFee > 0`.
+
+---
+
+## 👤 Account Management
+
+- **Register** — Creates a Firebase Auth account + `users/{uid}` + `customers/{uid}` Firestore docs.
+- **Edit Profile** — Updates `contactPerson`, `companyName`, `phoneNumber`, `address` in both collections.
+- **Delete Account** — Re-authenticates with password, deletes `users` + `customers` docs and Firebase Auth account. Order history is **preserved**.
 
 ---
 
 ## 🌐 Web Deployment
 
 ```bash
-# Build for web
 flutter build web --release
-
 # Output: build/web/
-# Deploy to: Firebase Hosting, Netlify, Vercel, etc.
+# Deploy to Firebase Hosting, Netlify, Vercel, etc.
 ```
 
 For Firebase Hosting:
@@ -268,46 +309,24 @@ flutter build appbundle --release
 
 ---
 
-## 🔮 Phase 2 — Backend (stleaf-backend)
-
-The backend will be a separate repository:
-
-```
-stleaf-backend/              ← Spring Boot 3 + Java 21
-  src/main/java/com/stleaf/
-    auth/                    ← JWT auth
-    product/                 ← Product management
-    inventory/               ← Inventory management
-    customer/                ← Customer CRM
-    order/                   ← Order management
-    payment/                 ← Payment tracking
-    delivery/                ← Delivery management
-    dashboard/               ← KPI aggregation
-  src/main/resources/
-    application.yml          ← PostgreSQL + JWT config
-  docker-compose.yml         ← PostgreSQL container
-  pom.xml
-```
-
-Tech stack: Spring Boot 3 · Java 21 · PostgreSQL · JWT · Swagger
-
----
-
 ## 🔮 Future Roadmap
 
 | Feature | Status |
 |---|---|
-| Retail Customers Portal | Planned |
-| FPX / TNG Payment | Planned |
-| Promotion Engine | Planned |
-| Loyalty Program | Planned |
-| AI Demand Prediction | Planned |
+| Push Notifications (order updates) | Planned |
+| FPX / Touch 'n Go Payment | Planned |
+| Promotion & Discount Engine | Planned |
+| Loyalty Points Program | Planned |
 | iOS App | Planned |
+| AI-based Demand Prediction | Planned |
+| Multi-language (BM / EN) | Planned |
 
 ---
 
-## 📞 Support
+## 📞 Contact & Support
 
 **ST Leaf Trading** — Fresh from Farm to Table  
-📍 Melaka, Malaysia  
-📧 admin@stleaf.com
+📍 J1809 Pasar Jasin, 77000 Jasin, Melaka, Malaysia  
+📱 WhatsApp: [011-2889 2991](https://wa.me/601128892991)  
+📧 Email: stleaf9193@gmail.com  
+🕐 Mon–Tue & Thu–Sun: 7:00 AM – 3:00 PM | Wed: Closed

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'dart:html' as html;
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
+import 'package:stleaf_trading/providers/settings_provider.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/admin_layout.dart';
+import 'package:stleaf_trading/presentation/screens/admin/reports/export_wizard_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -64,22 +67,11 @@ class _DashboardBody extends StatelessWidget {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.eco_rounded, color: AppColors.white, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      'ST Leaf Trading',
-                      style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 14),
-                    ),
-                  ],
-                ),
+              AppButton(
+                label: 'Export CSV',
+                icon: Icons.download_rounded,
+                isOutlined: true,
+                onPressed: () => _exportCsv(context),
               ),
             ],
           ),
@@ -133,6 +125,82 @@ class _DashboardBody extends StatelessWidget {
               ],
             );
           }),
+          const SizedBox(height: 28),
+          _SettingsCard(),
+        ],
+      ),
+    );
+  }
+
+  void _exportCsv(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => const ExportWizardDialog(defaultFormat: 'CSV'),
+    );
+  }
+}
+
+class _SettingsCard extends StatefulWidget {
+  @override
+  State<_SettingsCard> createState() => _SettingsCardState();
+}
+
+class _SettingsCardState extends State<_SettingsCard> {
+  final _feeCtrl = TextEditingController();
+  bool _synced = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final fee = context.read<SettingsProvider>().deliveryFee;
+    // Only auto-sync when fee loads from Firestore and user hasn't typed
+    if (!_synced && fee != 15.00 || _feeCtrl.text.isEmpty) {
+      _feeCtrl.text = fee.toStringAsFixed(2);
+      _synced = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _feeCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Store Settings', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: AppTextField(
+                  label: 'Default Delivery Fee (RM)',
+                  hint: '15.00',
+                  controller: _feeCtrl,
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 16),
+              AppButton(
+                label: 'Save',
+                isLoading: settings.isLoading,
+                onPressed: () {
+                  final newFee = double.tryParse(_feeCtrl.text);
+                  if (newFee != null) {
+                    settings.updateDeliveryFee(newFee);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Settings updated!'), backgroundColor: AppColors.success),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
         ],
       ),
     );

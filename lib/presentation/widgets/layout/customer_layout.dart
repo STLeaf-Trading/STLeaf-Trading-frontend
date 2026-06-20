@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/providers/auth_provider.dart';
+import 'package:stleaf_trading/presentation/widgets/common/contact_support_widget.dart';
 
 class CustomerLayout extends StatelessWidget {
   final Widget child;
@@ -17,6 +18,9 @@ class CustomerLayout extends StatelessWidget {
       backgroundColor: AppColors.surface,
       appBar: _CustomerAppBar(currentRoute: currentRoute),
       body: child,
+      floatingActionButton: (currentRoute == '/shop' || currentRoute.startsWith('/shop/orders')) 
+          ? const ContactSupportFAB() 
+          : null,
       bottomNavigationBar: MediaQuery.of(context).size.width < 600
           ? _BottomNav(currentRoute: currentRoute)
           : null,

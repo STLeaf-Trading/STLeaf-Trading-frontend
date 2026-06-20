@@ -3,32 +3,48 @@ import 'product_model.dart';
 
 class OrderItemModel {
   final String productId;
+  final String productName;
+  final String itemCode;
+  final String packType;
   final ProductModel? product;
   final int quantity;
   final double price;
   final double subtotal;
+  final String? remarks;
 
   const OrderItemModel({
     required this.productId,
+    this.productName = 'Unknown',
+    this.itemCode = '',
+    this.packType = 'kg',
     this.product,
     required this.quantity,
     required this.price,
     required this.subtotal,
+    this.remarks,
   });
 
   factory OrderItemModel.fromMap(Map<String, dynamic> json) => OrderItemModel(
         productId: json['productId'] ?? '',
+        productName: json['productName'] ?? 'Unknown',
+        itemCode: json['itemCode'] ?? '',
+        packType: json['packType'] ?? 'kg',
         product: json['product'] != null ? ProductModel.fromFirestore(json['product'] as DocumentSnapshot) : null,
         quantity: json['quantity'] ?? 0,
         price: (json['price'] ?? 0).toDouble(),
         subtotal: (json['subtotal'] ?? 0).toDouble(),
+        remarks: json['remarks'],
       );
 
   Map<String, dynamic> toJson() => {
         'productId': productId,
+        'productName': productName,
+        'itemCode': itemCode,
+        'packType': packType,
         'quantity': quantity,
         'price': price,
         'subtotal': subtotal,
+        if (remarks != null && remarks!.isNotEmpty) 'remarks': remarks,
       };
 }
 
@@ -46,6 +62,7 @@ class OrderModel {
   final String paymentStatus;
   final String orderStatus;
   final List<OrderItemModel> items;
+  final String? cancellationReason;
 
   const OrderModel({
     required this.id,
@@ -61,6 +78,7 @@ class OrderModel {
     required this.paymentStatus,
     required this.orderStatus,
     required this.items,
+    this.cancellationReason,
   });
 
   bool get isPending => orderStatus == 'Pending';
@@ -90,6 +108,7 @@ class OrderModel {
       paymentMethod: json['paymentMethod'] ?? 'Cash',
       paymentStatus: json['paymentStatus'] ?? 'Pending',
       orderStatus: json['orderStatus'] ?? 'Pending',
+      cancellationReason: json['cancellationReason'],
       items: (json['items'] as List<dynamic>? ?? [])
           .map((e) => OrderItemModel.fromMap(e as Map<String, dynamic>))
           .toList(),

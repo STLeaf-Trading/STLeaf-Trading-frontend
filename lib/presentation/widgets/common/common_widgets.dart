@@ -110,23 +110,25 @@ class StatusBadge extends StatelessWidget {
 
 // ─── Freshness Badge ──────────────────────────────────
 class FreshnessBadge extends StatelessWidget {
-  final String level;
+  final int level;
   const FreshnessBadge({super.key, required this.level});
 
   Color get _color {
-    switch (level) {
-      case 'Premium Fresh': return const Color(0xFF1565C0);
-      case 'Very Fresh': return AppColors.primaryLight;
-      default: return AppColors.accent;
-    }
+    if (level >= 8) return const Color(0xFF1565C0);
+    if (level >= 5) return AppColors.primaryLight;
+    return AppColors.accent;
   }
 
   IconData get _icon {
-    switch (level) {
-      case 'Premium Fresh': return Icons.star_rounded;
-      case 'Very Fresh': return Icons.eco_rounded;
-      default: return Icons.grass_rounded;
-    }
+    if (level >= 8) return Icons.star_rounded;
+    if (level >= 5) return Icons.eco_rounded;
+    return Icons.grass_rounded;
+  }
+
+  String get _label {
+    if (level >= 8) return 'Premium ($level/10)';
+    if (level >= 5) return 'Fresh ($level/10)';
+    return 'Standard ($level/10)';
   }
 
   @override
@@ -143,7 +145,7 @@ class FreshnessBadge extends StatelessWidget {
         children: [
           Icon(_icon, size: 11, color: _color),
           const SizedBox(width: 3),
-          Text(level, style: TextStyle(color: _color, fontSize: 10, fontWeight: FontWeight.w600)),
+          Text(_label, style: TextStyle(color: _color, fontSize: 10, fontWeight: FontWeight.w600)),
         ],
       ),
     );

@@ -7,6 +7,8 @@ import 'package:stleaf_trading/providers/auth_provider.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart';
+import 'package:stleaf_trading/presentation/widgets/common/contact_support_widget.dart';
+import 'package:stleaf_trading/presentation/screens/customer/profile/legal_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -77,11 +79,13 @@ class ProfileScreen extends StatelessWidget {
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
+                  _optionTile(context, Icons.edit_rounded, 'Edit Profile', 'Update your details & address', () => context.push('/shop/edit-profile')),
+                  _divider(),
                   _optionTile(context, Icons.receipt_long_rounded, 'My Orders', 'View your order history', () => context.go('/shop/orders')),
                   _divider(),
                   _optionTile(context, Icons.storefront_rounded, 'Browse Products', 'Shop fresh vegetables', () => context.go('/shop')),
                   _divider(),
-                  _optionTile(context, Icons.headset_mic_rounded, 'Contact Support', 'Get help with your orders', () {}),
+                  _optionTile(context, Icons.headset_mic_rounded, 'Contact Support', 'Get help with your orders', () => ContactSupportUtils.showContactOptions(context)),
                   _divider(),
                   _optionTile(
                     context, Icons.logout_rounded, 'Logout', 'Sign out of your account',
@@ -89,6 +93,40 @@ class ProfileScreen extends StatelessWidget {
                       await context.read<AuthProvider>().logout();
                       if (context.mounted) context.go('/login');
                     },
+                    isRed: true,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Legal section
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _optionTile(context, Icons.gavel_rounded, 'Terms & Conditions', 'Read our terms of service',
+                    () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const LegalScreen(title: 'Terms & Conditions', type: 'terms'),
+                    ))),
+                  _divider(),
+                  _optionTile(context, Icons.privacy_tip_rounded, 'Privacy Policy', 'How we handle your data',
+                    () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const LegalScreen(title: 'Privacy Policy', type: 'privacy'),
+                    ))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Danger zone
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _optionTile(
+                    context, Icons.delete_forever_rounded, 'Delete Account', 'Permanently remove your account',
+                    () => _showDeleteDialog(context),
                     isRed: true,
                   ),
                 ],
@@ -116,6 +154,78 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _showDeleteDialog(BuildContext context) async {
+    final passwordCtrl = TextEditingController();
+    bool obscure = true;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(children: [
+            Icon(Icons.warning_rounded, color: AppColors.danger),
+            SizedBox(width: 8),
+            Text('Delete Account', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.danger)),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This action is permanent and cannot be undone.\n\n'
+                '• Your account and profile will be permanently deleted.\n'
+                '• Your order history will be preserved for our records.\n\n'
+                'Please enter your password to confirm:',
+                style: TextStyle(fontSize: 13, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordCtrl,
+                obscureText: obscure,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  suffixIcon: IconButton(
+                    icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setStateDialog(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (passwordCtrl.text.isEmpty) return;
+                Navigator.pop(ctx);
+                final auth = context.read<AuthProvider>();
+                final error = await auth.deleteAccount(passwordCtrl.text);
+                if (context.mounted) {
+                  if (error == null) {
+                    context.go('/login');
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(error),
+                      backgroundColor: AppColors.danger,
+                    ));
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+              child: const Text('Delete Account', style: TextStyle(color: AppColors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+    passwordCtrl.dispose();
+  }
+
   Widget _optionTile(BuildContext context, IconData icon, String title, String subtitle, VoidCallback onTap, {bool isRed = false}) {
     return ListTile(
       onTap: onTap,
@@ -135,4 +245,3 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _divider() => const Divider(height: 1, indent: 72);
 }
-

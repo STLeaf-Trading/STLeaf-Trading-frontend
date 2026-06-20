@@ -277,16 +277,7 @@ class _ProductCardState extends State<_ProductCard> {
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: p.isOutOfStock ? null : () {
-                            cart.addToCart(p);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${p.name} added to cart'),
-                                backgroundColor: AppColors.success,
-                                behavior: SnackBarBehavior.floating,
-                                duration: const Duration(seconds: 1),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            );
+                            context.go('/shop/products/${p.id}');
                           },
                           icon: const Icon(Icons.add_shopping_cart_rounded, size: 14),
                           label: const Text('Add', style: TextStyle(fontSize: 12)),

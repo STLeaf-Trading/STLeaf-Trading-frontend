@@ -83,6 +83,14 @@ class _CartItemCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text('RM ${item.product.effectivePrice.toStringAsFixed(2)} / ${item.product.packType}',
                   style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                if (item.remarks != null && item.remarks!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: AppColors.warningLight, borderRadius: BorderRadius.circular(4)),
+                    child: Text('Note: ${item.remarks}', style: const TextStyle(fontSize: 10, color: AppColors.warning)),
+                  ),
+                ],
               ],
             ),
           ),
@@ -138,12 +146,12 @@ class _CartSummary extends StatelessWidget {
         children: [
           _row('Subtotal', 'RM ${cart.subtotal.toStringAsFixed(2)}'),
           const SizedBox(height: 8),
-          _row('Delivery Fee', 'RM ${cart.deliveryFee.toStringAsFixed(2)}'),
+          _row('Delivery Fee', 'Calculated at checkout'),
           const Divider(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const Text('Estimated Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
               Text('RM ${cart.total.toStringAsFixed(2)}',
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primary)),
             ],

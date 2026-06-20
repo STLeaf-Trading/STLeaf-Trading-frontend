@@ -119,6 +119,33 @@ class AuthProvider extends ChangeNotifier {
     await _auth.signOut();
   }
 
+  Future<String?> deleteAccount(String password) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 'No user logged in.';
+      // Re-authenticate
+      final credential = EmailAuthProvider.credential(email: user.email!, password: password);
+      await user.reauthenticateWithCredential(credential);
+      final uid = user.uid;
+      // Delete Firestore docs (orders are NOT deleted — preserved for records)
+      await Future.wait([
+        _db.collection('customers').doc(uid).delete(),
+        _db.collection('users').doc(uid).delete(),
+      ]);
+      // Delete Firebase Auth account
+      await user.delete();
+      _currentUser = null;
+      notifyListeners();
+      return null; // null = success
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        return 'Incorrect password. Please try again.';
+      }
+      return e.message ?? 'Failed to delete account.';
+    } catch (e) {
+      return 'An error occurred. Please try again.';
+    }
+  }
   void clearError() {
     _error = null;
     notifyListeners();

@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
-import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/admin_layout.dart';
+import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
+import 'export_wizard_dialog.dart';
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
@@ -16,7 +17,9 @@ class ReportsScreen extends StatelessWidget {
     final formatter = NumberFormat.currency(symbol: 'RM ', decimalDigits: 2);
 
     if (stats == null) {
-      context.read<DashboardProvider>().loadStats();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<DashboardProvider>().loadStats();
+      });
       return AdminLayout(currentRoute: '/admin/reports', child: const LoadingWidget());
     }
 
@@ -27,13 +30,25 @@ class ReportsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Reports', style: Theme.of(context).textTheme.displaySmall),
-                const Text('Business analytics overview', style: TextStyle(color: AppColors.textSecondary)),
-              ]),
-              AppButton(label: 'Export PDF', icon: Icons.download_rounded, onPressed: () {}),
-            ]),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Reports', style: Theme.of(context).textTheme.displaySmall),
+                  const Text('Business analytics overview', style: TextStyle(color: AppColors.textSecondary)),
+                ]),
+                AppButton(
+                  label: 'Export PDF',
+                  icon: Icons.download_rounded,
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => const ExportWizardDialog(defaultFormat: 'PDF'),
+                    );
+                  },
+                ),
+              ],
+            ),
             const SizedBox(height: 28),
 
             // Summary KPIs

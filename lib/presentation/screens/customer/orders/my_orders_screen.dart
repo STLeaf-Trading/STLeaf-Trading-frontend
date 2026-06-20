@@ -295,8 +295,36 @@ class OrderDetailScreen extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(order.paymentMethod, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                 ]),
+                // Cancellation reason
+                if (order.orderStatus == 'Cancelled' && order.cancellationReason != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.dangerLight,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.danger.withOpacity(0.2)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Cancellation Reason', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.danger)),
+                      const SizedBox(height: 4),
+                      Text(order.cancellationReason!, style: const TextStyle(fontSize: 13)),
+                    ]),
+                  ),
+                ],
               ]),
             ),
+            // Cancel button (only shown if order can still be cancelled)
+            if (order.orderStatus == 'Pending' || order.orderStatus == 'Confirmed') ...[
+              const SizedBox(height: 16),
+              AppButton(
+                label: 'Cancel Order',
+                icon: Icons.cancel_outlined,
+                isDanger: true,
+                width: double.infinity,
+                onPressed: () => context.push('/shop/orders/${order.id}/cancel'),
+              ),
+            ],
           ],
         ),
       ),

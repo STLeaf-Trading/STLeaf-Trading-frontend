@@ -36,7 +36,7 @@ class InventoryModel {
         productCode: json['productCode'],
         currentStock: json['currentStock'] ?? 0,
         reservedStock: json['reservedStock'] ?? 0,
-        reorderLevel: json['reorderLevel'] ?? 10,
+        reorderLevel: json['lowStockLevel'] ?? 10,
         lastUpdated: DateTime.tryParse(json['lastUpdated'] ?? '') ?? DateTime.now(),
       );
 }

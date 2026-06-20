@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
@@ -122,15 +123,6 @@ class _InventoryRow extends StatefulWidget {
 }
 
 class _InventoryRowState extends State<_InventoryRow> {
-  bool _editing = false;
-  late int _newStock;
-
-  @override
-  void initState() {
-    super.initState();
-    _newStock = widget.item.currentStock;
-  }
-
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
@@ -182,11 +174,11 @@ class _InventoryRowState extends State<_InventoryRow> {
               StatusBadge(status: item.stockStatus),
               const SizedBox(width: 12),
               IconButton(
-                onPressed: () => setState(() => _editing = !_editing),
-                icon: Icon(_editing ? Icons.check_rounded : Icons.edit_rounded, size: 18),
+                onPressed: () => context.go('/admin/products/${item.productId}/edit'),
+                icon: const Icon(Icons.edit_rounded, size: 18),
                 style: IconButton.styleFrom(
-                  backgroundColor: _editing ? AppColors.mint : AppColors.surface,
-                  foregroundColor: _editing ? AppColors.primary : AppColors.textSecondary,
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -201,38 +193,6 @@ class _InventoryRowState extends State<_InventoryRow> {
               minHeight: 6,
             ),
           ),
-          if (_editing) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Text('Update Stock: ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 100,
-                  child: TextFormField(
-                    initialValue: '$_newStock',
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) => _newStock = int.tryParse(v) ?? _newStock,
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                AppButton(
-                  label: 'Save',
-                  onPressed: () {
-                    context.read<InventoryProvider>().updateStock(item.id, _newStock);
-                    setState(() => _editing = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Stock updated'), backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );

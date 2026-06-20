@@ -24,7 +24,7 @@ class AppConstants {
   static const String deliveryPolicy = 'Orders placed today will be delivered tomorrow.';
 
   // Credit Terms
-  static const List<String> creditTerms = ['COD', '7 Days', '14 Days', '30 Days', '60 Days'];
+  static const List<String> creditTerms = ['Cash / COD', '7 Days', '14 Days', '30 Days', '60 Days'];
 
   // Categories
   static const List<String> productCategories = [
@@ -63,7 +63,7 @@ class AppConstants {
 
   // Payment Methods
   static const List<String> paymentMethods = [
-    'Cash',
+    'Cash / COD',
     'Bank Transfer',
     'Credit Term',
   ];

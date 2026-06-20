@@ -16,6 +16,16 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
+  final TextEditingController _remarksController = TextEditingController();
+
+  @override
+  void dispose() {
+    _remarksController.dispose();
+    super.dispose();
+  }
+
+  void _increment() => setState(() => _quantity++);
+  void _decrement() => setState(() { if (_quantity > 1) _quantity--; });
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +37,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     if (p == null) {
       return CustomerLayout(currentRoute: '/shop', child: const LoadingWidget());
+    }
+
+    void addToCart() {
+      cart.addToCart(p, quantity: _quantity, remarks: _remarksController.text.trim());
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${p.name} x$_quantity added to cart!'),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 1),
+      ));
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (context.mounted) context.go('/shop');
+      });
     }
 
     return CustomerLayout(
@@ -43,18 +67,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Expanded(child: _ProductImage(product: p)),
                   const SizedBox(width: 32),
                   Expanded(child: _ProductInfo(
-                    product: p, quantity: _quantity,
-                    onIncrease: () => setState(() => _quantity++),
-                    onDecrease: () => setState(() { if (_quantity > 1) _quantity--; }),
-                    onAddToCart: () {
-                      cart.addToCart(p, quantity: _quantity);
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('${p.name} x$_quantity added to cart!'),
-                        backgroundColor: AppColors.success,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ));
-                    },
+                    product: p, 
+                    quantity: _quantity,
+                    onIncrease: _increment,
+                    onDecrease: _decrement,
+                    onAddToCart: addToCart,
+                    remarksController: _remarksController,
                   )),
                 ],
               );
@@ -64,17 +82,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 _ProductImage(product: p),
                 const SizedBox(height: 20),
                 _ProductInfo(
-                  product: p, quantity: _quantity,
-                  onIncrease: () => setState(() => _quantity++),
-                  onDecrease: () => setState(() { if (_quantity > 1) _quantity--; }),
-                  onAddToCart: () {
-                    cart.addToCart(p, quantity: _quantity);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('${p.name} x$_quantity added to cart!'),
-                      backgroundColor: AppColors.success,
-                      behavior: SnackBarBehavior.floating,
-                    ));
-                  },
+                  product: p, 
+                  quantity: _quantity,
+                  onIncrease: _increment,
+                  onDecrease: _decrement,
+                  onAddToCart: addToCart,
+                  remarksController: _remarksController,
                 ),
               ],
             );
@@ -123,10 +136,15 @@ class _ProductInfo extends StatelessWidget {
   final product;
   final int quantity;
   final VoidCallback onIncrease, onDecrease, onAddToCart;
+  final TextEditingController remarksController;
 
   const _ProductInfo({
-    required this.product, required this.quantity,
-    required this.onIncrease, required this.onDecrease, required this.onAddToCart,
+    required this.product, 
+    required this.quantity,
+    required this.onIncrease, 
+    required this.onDecrease, 
+    required this.onAddToCart,
+    required this.remarksController,
   });
 
   @override
@@ -216,7 +234,24 @@ class _ProductInfo extends StatelessWidget {
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary),
           ),
         ]),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
+
+        // Remarks
+        const Text('Additional Notes (Optional):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: remarksController,
+          maxLines: 2,
+          decoration: InputDecoration(
+            hintText: 'E.g., Please pick the ripest ones...',
+            hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+            filled: true,
+            fillColor: AppColors.surface,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.all(12),
+          ),
+        ),
+        const SizedBox(height: 24),
 
         Row(children: [
           Expanded(child: AppButton(
