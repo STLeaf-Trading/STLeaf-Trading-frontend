@@ -10,21 +10,74 @@ import 'routes/app_router.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
+  runApp(const AppInitializer());
+}
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+class AppInitializer extends StatefulWidget {
+  const AppInitializer({super.key});
 
-  final authProvider = AuthProvider();
-  await authProvider.init();
+  @override
+  State<AppInitializer> createState() => _AppInitializerState();
+}
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: authProvider),
+class _AppInitializerState extends State<AppInitializer> {
+  late Future<void> _initFuture;
+  AuthProvider? _authProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFuture = _initializeServices();
+  }
+
+  Future<void> _initializeServices() async {
+    debugPrint("ST_DEBUG: Loading dotenv...");
+    await dotenv.load(fileName: ".env");
+
+    debugPrint("ST_DEBUG: Initializing Firebase...");
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } catch (e) {
+      if (!e.toString().contains('duplicate-app')) {
+        rethrow;
+      }
+    }
+
+    debugPrint("ST_DEBUG: Initializing AuthProvider...");
+    _authProvider = AuthProvider();
+    await _authProvider!.init();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: _initFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          );
+        } else if (snapshot.hasError) {
+          return MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: Text('Error initializing app: ${snapshot.error}', textDirection: TextDirection.ltr),
+              ),
+            ),
+          );
+        }
+
+        return MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: _authProvider!),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
@@ -33,11 +86,13 @@ void main() async {
         ChangeNotifierProvider(create: (_) => DeliveryProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
-        ChangeNotifierProvider(create: (_) => InstalmentProvider()),
-      ],
-      child: const STLeafApp(),
-    ),
-  );
+            ChangeNotifierProvider(create: (_) => InstalmentProvider()),
+          ],
+          child: const STLeafApp(),
+        );
+      },
+    );
+  }
 }
 
 class STLeafApp extends StatefulWidget {

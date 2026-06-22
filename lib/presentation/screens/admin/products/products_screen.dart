@@ -63,9 +63,12 @@ class _ProductsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        runSpacing: 16,
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +138,7 @@ class _ProductGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (ctx, constraints) {
-        final crossCount = constraints.maxWidth > 1000 ? 4 : (constraints.maxWidth > 700 ? 3 : 2);
+        final crossCount = constraints.maxWidth > 1000 ? 4 : (constraints.maxWidth > 700 ? 3 : (constraints.maxWidth > 500 ? 2 : 1));
         final itemWidth = (constraints.maxWidth - 56 - (crossCount - 1) * 16) / crossCount;
         final itemHeight = 130 + 225.0; // 130px for image + 225px for content
         return GridView.builder(

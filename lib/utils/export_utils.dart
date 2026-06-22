@@ -1,12 +1,11 @@
 import 'package:intl/intl.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../data/models/order_model.dart';
-import '../data/models/customer_model.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'web_download_stub.dart' if (dart.library.html) 'web_download.dart';
 
 class ExportUtils {
   static const List<String> allAvailableColumns = [
@@ -65,14 +64,13 @@ class ExportUtils {
       buffer.writeln(rowFields.join(','));
     }
     
-    final blob = html.Blob([buffer.toString()], 'text/csv');
-    final url = html.Url.createObjectUrlFromBlob(blob);
     final fileName = '${fileNamePrefix}_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.csv';
     
-    html.AnchorElement(href: url)
-      ..setAttribute('download', fileName)
-      ..click();
-    html.Url.revokeObjectUrl(url);
+    if (kIsWeb) {
+      downloadFileWeb(utf8.encode(buffer.toString()), 'text/csv', fileName);
+    } else {
+      debugPrint('CSV export is currently only supported on Web.');
+    }
   }
 
   static Future<void> exportOrdersPdf(List<OrderModel> orders, List<String> selectedColumns, {String title = 'Orders Report', String fileNamePrefix = 'orders'}) async {
@@ -127,12 +125,7 @@ class ExportUtils {
     final fileName = '${fileNamePrefix}_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.pdf';
     
     if (kIsWeb) {
-      final blob = html.Blob([bytes], 'application/pdf');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      html.AnchorElement(href: url)
-        ..setAttribute('download', fileName)
-        ..click();
-      html.Url.revokeObjectUrl(url);
+      downloadFileWeb(bytes, 'application/pdf', fileName);
     } else {
       await Printing.sharePdf(bytes: bytes, filename: fileName);
     }

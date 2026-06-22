@@ -604,8 +604,8 @@ class DashboardProvider extends ChangeNotifier {
       final allProductsSnap = await _db.collection('products').get();
       int lowStockCount = allProductsSnap.docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        final stock = (data['stockQuantity'] ?? 0) as int;
-        final lowLevel = (data['lowStockLevel'] ?? 10) as int;
+        final stock = ((data['stockQuantity'] ?? 0) as num).toInt();
+        final lowLevel = ((data['lowStockLevel'] ?? 10) as num).toInt();
         return stock > 0 && stock <= lowLevel;
       }).length;
 
@@ -656,7 +656,7 @@ class DashboardProvider extends ChangeNotifier {
         for (var item in items) {
           final productId = item['productId'] as String?;
           final name = (item['productName'] as String?) ?? (productId != null ? productNames[productId] : null) ?? 'Unknown';
-          final qty = (item['quantity'] ?? 0) as int;
+          final qty = ((item['quantity'] ?? 0) as num).toDouble();
           final rev = ((item['subtotal'] ?? item['price'] ?? 0) as num).toDouble();
           productStats[name] = _ProductStat(
             name: name,
@@ -706,7 +706,7 @@ class DashboardProvider extends ChangeNotifier {
 
 class _ProductStat {
   final String name;
-  final int quantity;
+  final double quantity;
   final double revenue;
   _ProductStat({required this.name, required this.quantity, required this.revenue});
 }

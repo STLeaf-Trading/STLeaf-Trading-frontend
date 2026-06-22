@@ -1,4 +1,4 @@
-# 🌿 ST Leaf Trading — Flutter App
+# ST Leaf Trading — Flutter App
 
 A **production-ready Flutter app** for **ST Leaf Trading**, a fresh vegetable wholesale supplier based in Jasin, Melaka, Malaysia. The platform supports a full dual-portal system — an **Admin Portal** for operations management and a **Customer Portal** for ordering fresh produce.
 
@@ -11,12 +11,12 @@ A **production-ready Flutter app** for **ST Leaf Trading**, a fresh vegetable wh
 | Platform | Status |
 |---|---|
 | 🌐 Web (Admin + Customer) | ✅ Supported |
-| 📱 Android (Customer App) | ✅ Supported |
+| 🤖 Android (Customer App) | ✅ Supported |
 | 🍎 iOS | Planned |
 
 ---
 
-## 🏪 Business Info
+## 🏢 Business Info
 
 | Detail | Value |
 |---|---|
@@ -24,12 +24,11 @@ A **production-ready Flutter app** for **ST Leaf Trading**, a fresh vegetable wh
 | **Location** | J1809 Pasar Jasin, 77000 Jasin, Melaka, Malaysia |
 | **WhatsApp** | 011-2889 2991 |
 | **Email** | stleaf9193@gmail.com |
-| **Hours** | Mon–Tue & Thu–Sun: 7:00 AM – 3:00 PM · Wed: Closed |
+| **Hours** | Mon–Tue & Thu–Sun: 7:00 AM – 3:00 PM \| Wed: Closed |
 
 ---
 
-
-## 🗂 Project Structure
+## 📁 Project Structure
 
 ```
 lib/
@@ -125,7 +124,7 @@ flutter build web --release
 
 ---
 
-## 🔐 Firebase Setup
+## 🔥 Firebase Setup
 
 This project uses **Firebase** as its backend. You need to configure your own Firebase project:
 
@@ -139,7 +138,7 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 
 ---
 
-## 📱 Screens Overview
+## 🖼️ Screens Overview
 
 ### Authentication
 | Screen | Description |
@@ -157,7 +156,7 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 | Inventory | Stock progress bars, user-defined low stock level, out-of-stock detection, edit page |
 | Customers | CRM list with search |
 | Customer Detail | Full profile + outstanding balance |
-| Orders | Status filter tabs, order pipeline, Confirm → Packed → Delivered flow |
+| Orders | Status filter tabs, order pipeline, Confirm -> Packed -> Delivered flow |
 | Order Detail | Status stepper, items, payment summary, action buttons (Confirm/Packed/Delivered), admin Cancel with reason, shows cancellation reason |
 | Delivery | Delivery-only orders (deliveryFee > 0), status tracking |
 | Instalments | Track all customer instalment plans, review uploaded receipts, and mark phases as Paid/Late |
@@ -167,7 +166,7 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 | Screen | Description |
 |---|---|
 | Home / Shop | Hero banner, category filter pills, product grid, floating contact widget |
-| Product Detail | Freshness badge (0–10 scale), qty selector, add to cart → auto-returns to shop |
+| Product Detail | Freshness badge (0–10 scale), qty selector, add to cart -> auto-returns to shop |
 | Cart | Item list, qty controls, subtotal |
 | Checkout | Choose Pickup (free) or Company Delivery (requires address, fee set by admin), Cash/FPX/TNG/Instalment payment |
 | My Orders | Progress bars, status filter chips, Cancel button (Pending/Confirmed only) |
@@ -202,35 +201,35 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 
 ---
 
-## 🛣 Routes
+## 🛣️ Routes
 
 ```
-/login                        → Login page
-/register                     → Register page
+/login                        -> Login page
+/register                     -> Register page
 
-/admin/dashboard              → Dashboard (KPIs + Charts + Export CSV)
-/admin/products               → Products list
-/admin/products/new           → Add product form
-/admin/products/:id/edit      → Edit product form
-/admin/inventory              → Inventory management
-/admin/customers              → Customers list
-/admin/customers/:id          → Customer detail
-/admin/orders                 → Orders management
-/admin/orders/:id             → Order detail (with Cancel button)
-/admin/delivery               → Delivery tracking (fee > 0 only)
-/admin/instalments            → Instalment plan tracking & approval
-/admin/reports                → Reports & analytics (Export to PDF/CSV)
+/admin/dashboard              -> Dashboard (KPIs + Charts + Export CSV)
+/admin/products               -> Products list
+/admin/products/new           -> Add product form
+/admin/products/:id/edit      -> Edit product form
+/admin/inventory              -> Inventory management
+/admin/customers              -> Customers list
+/admin/customers/:id          -> Customer detail
+/admin/orders                 -> Orders management
+/admin/orders/:id             -> Order detail (with Cancel button)
+/admin/delivery               -> Delivery tracking (fee > 0 only)
+/admin/instalments            -> Instalment plan tracking & approval
+/admin/reports                -> Reports & analytics (Export to PDF/CSV)
 
-/shop                         → Customer: Product catalog
-/shop/products/:id            → Customer: Product detail
-/shop/cart                    → Customer: Shopping cart
-/shop/checkout                → Customer: Checkout (Pickup / Delivery)
-/shop/orders                  → Customer: My orders
-/shop/orders/:id              → Customer: Order detail
-/shop/orders/:id/cancel       → Customer: Cancel order (reason screen)
-/shop/instalments             → Customer: Instalment plans & payments
-/shop/profile                 → Customer: Profile
-/shop/edit-profile            → Customer: Edit profile & address
+/shop                         -> Customer: Product catalog
+/shop/products/:id            -> Customer: Product detail
+/shop/cart                    -> Customer: Shopping cart
+/shop/checkout                -> Customer: Checkout (Pickup / Delivery)
+/shop/orders                  -> Customer: My orders
+/shop/orders/:id              -> Customer: Order detail
+/shop/orders/:id/cancel       -> Customer: Cancel order (reason screen)
+/shop/instalments             -> Customer: Instalment plans & payments
+/shop/profile                 -> Customer: Profile
+/shop/edit-profile            -> Customer: Edit profile & address
 ```
 
 ---
@@ -238,12 +237,12 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 ## 🔄 Order Status Flow
 
 ```
-Pending → Confirmed → Packed → Out For Delivery → Delivered
-                                       ↑
+Pending -> Confirmed -> Packed -> Out For Delivery -> Delivered
+                                       |
                          (Only for orders with deliveryFee > 0)
 
-Any stage → Cancelled (Admin can cancel at any stage)
-Pending / Confirmed → Cancelled (Customer can self-cancel)
+Any stage -> Cancelled (Admin can cancel at any stage)
+Pending / Confirmed -> Cancelled (Customer can self-cancel)
 ```
 
 - **Cancellation reasons** are stored in Firestore and displayed on both customer and admin order detail screens.
@@ -251,7 +250,7 @@ Pending / Confirmed → Cancelled (Customer can self-cancel)
 
 ---
 
-## 💰 Delivery & Payment
+## 🚚 Delivery & Payment
 
 - **Pickup** — Customer collects from J1809 Pasar Jasin. Delivery fee = RM 0.00.
 - **Company Delivery** — Requires customer to have a saved address. Fee is set by admin in Store Settings and persisted in Firestore (`settings/general`).
@@ -317,6 +316,6 @@ flutter build appbundle --release
 
 **ST Leaf Trading** — Fresh from Farm to Table  
 📍 J1809 Pasar Jasin, 77000 Jasin, Melaka, Malaysia  
-📱 WhatsApp: [011-2889 2991](https://wa.me/601128892991)  
+💬 WhatsApp: [011-2889 2991](https://wa.me/601128892991)  
 📧 Email: stleaf9193@gmail.com  
-🕐 Mon–Tue & Thu–Sun: 7:00 AM – 3:00 PM | Wed: Closed
+🕒 Mon–Tue & Thu–Sun: 7:00 AM – 3:00 PM \| Wed: Closed

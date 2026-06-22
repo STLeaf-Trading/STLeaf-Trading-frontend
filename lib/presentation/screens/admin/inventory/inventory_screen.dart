@@ -59,34 +59,59 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   const SizedBox(height: 24),
 
                   // Stats
-                  Row(children: [
-                    Expanded(child: StatCard(title: 'Total Products', value: '${provider.inventory.length}',
-                      icon: Icons.inventory_2_rounded, color: AppColors.primary)),
-                    const SizedBox(width: 16),
-                    Expanded(child: StatCard(title: 'Low Stock', value: '${provider.lowStock.length}',
-                      icon: Icons.warning_amber_rounded, color: AppColors.warning)),
-                    const SizedBox(width: 16),
-                    Expanded(child: StatCard(title: 'Out of Stock', value: '${provider.outOfStock.length}',
-                      icon: Icons.remove_shopping_cart_rounded, color: AppColors.danger)),
-                  ]),
+                  LayoutBuilder(builder: (context, constraints) {
+                    if (constraints.maxWidth < 600) {
+                      return Column(
+                        children: [
+                          StatCard(title: 'Total Products', value: '${provider.inventory.length}',
+                            icon: Icons.inventory_2_rounded, color: AppColors.primary),
+                          const SizedBox(height: 16),
+                          StatCard(title: 'Low Stock', value: '${provider.lowStock.length}',
+                            icon: Icons.warning_amber_rounded, color: AppColors.warning),
+                          const SizedBox(height: 16),
+                          StatCard(title: 'Out of Stock', value: '${provider.outOfStock.length}',
+                            icon: Icons.remove_shopping_cart_rounded, color: AppColors.danger),
+                        ],
+                      );
+                    }
+                    return Row(children: [
+                      Expanded(child: StatCard(title: 'Total Products', value: '${provider.inventory.length}',
+                        icon: Icons.inventory_2_rounded, color: AppColors.primary)),
+                      const SizedBox(width: 16),
+                      Expanded(child: StatCard(title: 'Low Stock', value: '${provider.lowStock.length}',
+                        icon: Icons.warning_amber_rounded, color: AppColors.warning)),
+                      const SizedBox(width: 16),
+                      Expanded(child: StatCard(title: 'Out of Stock', value: '${provider.outOfStock.length}',
+                        icon: Icons.remove_shopping_cart_rounded, color: AppColors.danger)),
+                    ]);
+                  }),
                   const SizedBox(height: 28),
 
                   // Table
-                  AppCard(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Row(children: [
-                            Text('Stock Levels', style: Theme.of(context).textTheme.titleLarge),
-                          ]),
+                  LayoutBuilder(builder: (context, constraints) {
+                    return AppCard(
+                      padding: EdgeInsets.zero,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: constraints.maxWidth > 800 ? constraints.maxWidth : 800,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Row(children: [
+                                  Text('Stock Levels', style: Theme.of(context).textTheme.titleLarge),
+                                ]),
+                              ),
+                              const Divider(height: 1),
+                              ...provider.inventory.map((item) => _InventoryRow(item: item)),
+                            ],
+                          ),
                         ),
-                        const Divider(height: 1),
-                        ...provider.inventory.map((item) => _InventoryRow(item: item)),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),

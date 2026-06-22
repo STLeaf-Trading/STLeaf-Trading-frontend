@@ -52,14 +52,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         if (auth.isAdmin) context.go('/admin/dashboard');
         else context.go('/shop');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(auth.error ?? 'Login failed'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        if (auth.error != 'email_not_verified') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(auth.error ?? 'Login failed'),
+              backgroundColor: AppColors.danger,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
       }
     }
   }
@@ -288,6 +290,43 @@ class _FormPanel extends StatelessWidget {
                   const Text('Sign in to your account', style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
                   const SizedBox(height: 40),
 
+                  if (context.watch<AuthProvider>().error == 'email_not_verified') ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.warning),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Email Not Verified', style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 8),
+                          const Text('Please verify your email address before logging in.', style: TextStyle(fontSize: 13)),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                final res = await context.read<AuthProvider>().resendVerificationEmail(emailCtrl.text.trim(), passCtrl.text.trim());
+                                if (context.mounted && res) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification email resent!')));
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.warning,
+                                foregroundColor: AppColors.white,
+                              ),
+                              child: const Text('Resend Verification Email'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
                   AppTextField(
                     label: 'Email Address',
                     hint: 'admin@stleaf.com',
@@ -316,7 +355,51 @@ class _FormPanel extends StatelessWidget {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) {
+                            final resetEmailCtrl = TextEditingController(text: emailCtrl.text);
+                            return AlertDialog(
+                              title: const Text('Reset Password'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text('Enter your email address to receive a password reset link.'),
+                                  const SizedBox(height: 16),
+                                  AppTextField(label: 'Email', controller: resetEmailCtrl),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    if (resetEmailCtrl.text.isEmpty) return;
+                                    final res = await context.read<AuthProvider>().resetPassword(resetEmailCtrl.text.trim());
+                                    if (ctx.mounted) {
+                                      Navigator.of(ctx).pop();
+                                      if (res) {
+                                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Password reset email sent!')));
+                                      } else {
+                                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Failed to send reset email. Please try again.')));
+                                      }
+                                    }
+                                  },
+                                  child: const Text('Send Reset Link'),
+                                ),
+                              ],
+                            );
+                          }
+                        );
+                      },
+                      child: const Text('Forgot Password?', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   AppButton(
                     label: 'Sign In',
                     onPressed: onLogin,

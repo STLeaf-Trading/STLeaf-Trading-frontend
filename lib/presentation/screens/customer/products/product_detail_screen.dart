@@ -264,62 +264,88 @@ class _ProductInfo extends StatelessWidget {
         const SizedBox(height: 24),
 
         // Qty selector
-        Row(children: [
-          const Text('Quantity:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 16),
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.border),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(children: [
-              IconButton(
-                onPressed: onDecrease,
-                icon: const Icon(Icons.remove_rounded),
-                style: IconButton.styleFrom(foregroundColor: AppColors.primary),
-              ),
-              SizedBox(
-                width: 60,
-                child: TextField(
-                  controller: qtyCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
-                  onSubmitted: (v) {
-                    final parsed = double.tryParse(v);
-                    if (parsed != null && parsed > 0) {
-                      onQuantityChange(parsed);
-                    } else {
-                      qtyCtrl.text = quantity == quantity.truncate() ? quantity.toInt().toString() : quantity.toStringAsFixed(2);
-                    }
-                  },
-                  onTapOutside: (_) {
-                    final parsed = double.tryParse(qtyCtrl.text);
-                    if (parsed != null && parsed > 0) {
-                      onQuantityChange(parsed);
-                    } else {
-                      qtyCtrl.text = quantity == quantity.truncate() ? quantity.toInt().toString() : quantity.toStringAsFixed(2);
-                    }
-                  },
+        LayoutBuilder(builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 350;
+          
+          Widget qtySelector = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Quantity:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 16),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                child: Row(children: [
+                  IconButton(
+                    onPressed: onDecrease,
+                    icon: const Icon(Icons.remove_rounded),
+                    style: IconButton.styleFrom(foregroundColor: AppColors.primary),
+                  ),
+                  SizedBox(
+                    width: 60,
+                    child: TextField(
+                      controller: qtyCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                      onSubmitted: (v) {
+                        final parsed = double.tryParse(v);
+                        if (parsed != null && parsed > 0) {
+                          onQuantityChange(parsed);
+                        } else {
+                          qtyCtrl.text = quantity == quantity.truncate() ? quantity.toInt().toString() : quantity.toStringAsFixed(2);
+                        }
+                      },
+                      onTapOutside: (_) {
+                        final parsed = double.tryParse(qtyCtrl.text);
+                        if (parsed != null && parsed > 0) {
+                          onQuantityChange(parsed);
+                        } else {
+                          qtyCtrl.text = quantity == quantity.truncate() ? quantity.toInt().toString() : quantity.toStringAsFixed(2);
+                        }
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onIncrease,
+                    icon: const Icon(Icons.add_rounded),
+                    style: IconButton.styleFrom(foregroundColor: AppColors.primary),
+                  ),
+                ]),
               ),
-              IconButton(
-                onPressed: onIncrease,
-                icon: const Icon(Icons.add_rounded),
-                style: IconButton.styleFrom(foregroundColor: AppColors.primary),
-              ),
-            ]),
-          ),
-          const Spacer(),
-          Text(
+            ],
+          );
+          
+          Widget totalText = Text(
             'Total: RM ${(p.effectivePrice * quantity).toStringAsFixed(2)}',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary),
-          ),
-        ]),
+          );
+
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                qtySelector,
+                const SizedBox(height: 12),
+                totalText,
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              qtySelector,
+              const Spacer(),
+              totalText,
+            ],
+          );
+        }),
         const SizedBox(height: 16),
 
         // Remarks

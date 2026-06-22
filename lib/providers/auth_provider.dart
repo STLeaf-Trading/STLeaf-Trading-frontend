@@ -48,8 +48,23 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
-      // init() listener will handle currentUser setting
+      final userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      
+      // Enforce email verification for users created after June 22, 2026
+      final creationTime = userCredential.user?.metadata.creationTime;
+      final enforceVerificationAfter = DateTime(2026, 6, 22); // Today's date
+      
+      if (creationTime != null && creationTime.isAfter(enforceVerificationAfter)) {
+        if (!userCredential.user!.emailVerified) {
+          await _auth.signOut();
+          _error = 'email_not_verified';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+      }
+
+      await _updateUser(userCredential.user);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -101,6 +116,10 @@ class AuthProvider extends ChangeNotifier {
           'creditHistory': [],
           'createdAt': FieldValue.serverTimestamp(),
         });
+        
+        // Send verification email and sign out
+        await userCredential.user!.sendEmailVerification();
+        await _auth.signOut();
       }
       _isLoading = false;
       notifyListeners();
@@ -120,6 +139,53 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     await _auth.signOut();
+    await _updateUser(null);
+  }
+
+  Future<bool> resendVerificationEmail(String email, String password) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      await userCredential.user?.sendEmailVerification();
+      await _auth.signOut();
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _error = e.message ?? 'Failed to resend verification email.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Failed to resend verification email.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(String email) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _error = e.message ?? 'Failed to send password reset email.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Failed to send password reset email.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<String?> deleteAccount(String password) async {

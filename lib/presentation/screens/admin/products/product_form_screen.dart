@@ -325,166 +325,192 @@ class _FormSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Basic Information', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
-              const SizedBox(height: 20),
-              
-              // Image Picker Row
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 80, height: 80,
-                    decoration: BoxDecoration(
-                      color: AppColors.mint,
-                      borderRadius: BorderRadius.circular(12),
-                      image: imageBytes != null
-                          ? DecorationImage(image: MemoryImage(imageBytes!), fit: BoxFit.cover)
-                          : (existingImageUrl != null
-                              ? DecorationImage(image: NetworkImage(existingImageUrl!), fit: BoxFit.cover)
-                              : null),
-                    ),
-                    child: (imageBytes == null && existingImageUrl == null)
-                        ? const Icon(Icons.add_photo_alternate_rounded, color: AppColors.primary, size: 32)
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  AppButton(
-                    label: 'Choose Image',
-                    isOutlined: true,
-                    icon: Icons.upload_rounded,
-                    onPressed: onImagePick,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
-              Row(children: [
-                Expanded(child: AppTextField(label: 'Item Code *', hint: 'e.g. VEG-001', controller: itemCodeCtrl,
-                  validator: (v) => (v == null || v.isEmpty) ? 'Item code is required' : null)),
-                const SizedBox(width: 16),
-                Expanded(child: AppTextField(label: 'Product Name *', hint: 'e.g. Kangkung', controller: nameCtrl,
-                  validator: (v) => (v == null || v.isEmpty) ? 'Name is required' : null)),
-              ]),
-              const SizedBox(height: 16),
-              Row(children: [
-                Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(builder: (context, constraints) {
+      final isNarrow = constraints.maxWidth < 500;
+      
+      Widget responsiveRow(List<Widget> children) {
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children.where((w) => w is Expanded).map((w) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: (w as Expanded).child,
+              );
+            }).toList(),
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        );
+      }
+
+      return Column(
+        children: [
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Basic Information', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                const SizedBox(height: 20),
+                
+                // Image Picker Row
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 16,
+                  runSpacing: 16,
                   children: [
-                    const Text('Category *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
-                    const SizedBox(height: 6),
-                    RawAutocomplete<String>(
-                      textEditingController: categoryCtrl,
-                      focusNode: FocusNode(),
-                      optionsBuilder: (TextEditingValue textEditingValue) {
-                        if (textEditingValue.text.isEmpty) return AppConstants.productCategories;
-                        return AppConstants.productCategories.where((String option) =>
-                            option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
-                      },
-                      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
-                        return TextFormField(
-                          controller: textEditingController,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            hintText: 'Type or select category',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          ),
-                          validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-                        );
-                      },
-                      optionsViewBuilder: (context, onSelected, options) {
-                        return Align(
-                          alignment: Alignment.topLeft,
-                          child: Material(
-                            elevation: 4,
-                            child: SizedBox(
-                              height: 200,
-                              child: ListView(
-                                padding: EdgeInsets.zero,
-                                children: options.map((opt) => ListTile(
-                                  title: Text(opt),
-                                  onTap: () => onSelected(opt),
-                                )).toList(),
+                    Container(
+                      width: 80, height: 80,
+                      decoration: BoxDecoration(
+                        color: AppColors.mint,
+                        borderRadius: BorderRadius.circular(12),
+                        image: imageBytes != null
+                            ? DecorationImage(image: MemoryImage(imageBytes!), fit: BoxFit.cover)
+                            : (existingImageUrl != null
+                                ? DecorationImage(image: NetworkImage(existingImageUrl!), fit: BoxFit.cover)
+                                : null),
+                      ),
+                      child: (imageBytes == null && existingImageUrl == null)
+                          ? const Icon(Icons.add_photo_alternate_rounded, color: AppColors.primary, size: 32)
+                          : null,
+                    ),
+                    AppButton(
+                      label: 'Choose Image',
+                      isOutlined: true,
+                      icon: Icons.upload_rounded,
+                      onPressed: onImagePick,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                responsiveRow([
+                  Expanded(child: AppTextField(label: 'Item Code *', hint: 'e.g. VEG-001', controller: itemCodeCtrl,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Item code is required' : null)),
+                  const SizedBox(width: 16),
+                  Expanded(child: AppTextField(label: 'Product Name *', hint: 'e.g. Kangkung', controller: nameCtrl,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Name is required' : null)),
+                ]),
+                if (!isNarrow) const SizedBox(height: 16),
+                
+                responsiveRow([
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Category *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                      const SizedBox(height: 6),
+                      RawAutocomplete<String>(
+                        textEditingController: categoryCtrl,
+                        focusNode: FocusNode(),
+                        optionsBuilder: (TextEditingValue textEditingValue) {
+                          if (textEditingValue.text.isEmpty) return AppConstants.productCategories;
+                          return AppConstants.productCategories.where((String option) =>
+                              option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                        },
+                        fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                          return TextFormField(
+                            controller: textEditingController,
+                            focusNode: focusNode,
+                            decoration: InputDecoration(
+                              hintText: 'Type or select category',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                          );
+                        },
+                        optionsViewBuilder: (context, onSelected, options) {
+                          return Align(
+                            alignment: Alignment.topLeft,
+                            child: Material(
+                              elevation: 4,
+                              child: SizedBox(
+                                height: 200,
+                                child: ListView(
+                                  padding: EdgeInsets.zero,
+                                  children: options.map((opt) => ListTile(
+                                    title: Text(opt),
+                                    onTap: () => onSelected(opt),
+                                  )).toList(),
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                )),
-                const SizedBox(width: 16),
-                Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Freshness Level *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
-                        Text('${freshnessValue.toInt()} / 10', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: AppColors.primary,
-                        inactiveTrackColor: AppColors.border,
-                        thumbColor: AppColors.primary,
-                        overlayColor: AppColors.primary.withOpacity(0.2),
+                          );
+                        },
                       ),
-                      child: Slider(
-                        value: freshnessValue,
-                        min: 0,
-                        max: 10,
-                        divisions: 10,
-                        label: freshnessValue.toInt().toString(),
-                        onChanged: onFreshnessChanged,
+                    ],
+                  )),
+                  const SizedBox(width: 16),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        children: [
+                          const Text('Freshness Level *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                          Text('${freshnessValue.toInt()} / 10', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                        ],
                       ),
-                    ),
-                  ],
-                )),
-              ]),
-              const SizedBox(height: 16),
-              AppTextField(label: 'Description', hint: 'Product description...', controller: descCtrl, maxLines: 3),
-              const SizedBox(height: 16),
-              AppTextField(label: 'Precaution / Storage', hint: 'Storage and handling instructions...', controller: precautionCtrl, maxLines: 2),
-            ],
+                      const SizedBox(height: 6),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          activeTrackColor: AppColors.primary,
+                          inactiveTrackColor: AppColors.border,
+                          thumbColor: AppColors.primary,
+                          overlayColor: AppColors.primary.withOpacity(0.2),
+                        ),
+                        child: Slider(
+                          value: freshnessValue,
+                          min: 0,
+                          max: 10,
+                          divisions: 10,
+                          label: freshnessValue.toInt().toString(),
+                          onChanged: onFreshnessChanged,
+                        ),
+                      ),
+                    ],
+                  )),
+                ]),
+                if (!isNarrow) const SizedBox(height: 16),
+                
+                AppTextField(label: 'Description', hint: 'Product description...', controller: descCtrl, maxLines: 3),
+                const SizedBox(height: 16),
+                AppTextField(label: 'Precaution / Storage', hint: 'Storage and handling instructions...', controller: precautionCtrl, maxLines: 2),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 20),
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Pricing & Stock', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
-              const SizedBox(height: 20),
-              Row(children: [
-                Expanded(child: AppTextField(label: 'Pack Type', hint: 'Bundle / KG / Pack', controller: packTypeCtrl)),
-                const SizedBox(width: 16),
-                Expanded(child: AppTextField(label: 'Weight (kg)', hint: '0.5', controller: weightCtrl,
-                  keyboardType: TextInputType.number)),
-              ]),
-              const SizedBox(height: 16),
-              Row(children: [
-                Expanded(child: AppTextField(label: 'Price (RM) *', hint: '3.50', controller: priceCtrl,
-                  keyboardType: TextInputType.number,
-                  validator: (v) => (v == null || v.isEmpty) ? 'Price is required' : null)),
-                const SizedBox(width: 16),
-                Expanded(child: AppTextField(label: 'Stock Quantity *', hint: '100', controller: stockCtrl,
-                  keyboardType: TextInputType.number,
-                  validator: (v) => (v == null || v.isEmpty) ? 'Stock is required' : null)),
-                const SizedBox(width: 16),
-                Expanded(child: AppTextField(label: 'Low Stock Level', hint: '10', controller: lowStockCtrl,
-                  keyboardType: TextInputType.number,
-                  validator: (v) => (v == null || v.isEmpty) ? 'Required' : null)),
-              ]),
-              const SizedBox(height: 16),
+          const SizedBox(height: 20),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Pricing & Stock', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                const SizedBox(height: 20),
+                responsiveRow([
+                  Expanded(child: AppTextField(label: 'Pack Type', hint: 'Bundle / KG / Pack', controller: packTypeCtrl)),
+                  const SizedBox(width: 16),
+                  Expanded(child: AppTextField(label: 'Weight (kg)', hint: '0.5', controller: weightCtrl,
+                    keyboardType: TextInputType.number)),
+                ]),
+                if (!isNarrow) const SizedBox(height: 16),
+                
+                responsiveRow([
+                  Expanded(child: AppTextField(label: 'Price (RM) *', hint: '3.50', controller: priceCtrl,
+                    keyboardType: TextInputType.number,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Price is required' : null)),
+                  const SizedBox(width: 16),
+                  Expanded(child: AppTextField(label: 'Stock Quantity *', hint: '100', controller: stockCtrl,
+                    keyboardType: TextInputType.number,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Stock is required' : null)),
+                  const SizedBox(width: 16),
+                  Expanded(child: AppTextField(label: 'Low Stock Level', hint: '10', controller: lowStockCtrl,
+                    keyboardType: TextInputType.number,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null)),
+                ]),
+                if (!isNarrow) const SizedBox(height: 16),
+
               Row(
                 children: [
                   Checkbox(value: hasPromo, onChanged: onPromoToggled, activeColor: AppColors.primary),
@@ -501,6 +527,7 @@ class _FormSection extends StatelessWidget {
         ),
       ],
     );
+    });
   }
 }
 

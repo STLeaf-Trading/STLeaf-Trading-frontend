@@ -107,7 +107,9 @@ class _CustomerAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: CircleAvatar(
               radius: 18, backgroundColor: AppColors.mint,
               child: Text(
-                (auth.currentUser?.name ?? 'U')[0].toUpperCase(),
+                (auth.currentUser?.name != null && auth.currentUser!.name.isNotEmpty) 
+                    ? auth.currentUser!.name[0].toUpperCase() 
+                    : 'U',
                 style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 14),
               ),
             ),

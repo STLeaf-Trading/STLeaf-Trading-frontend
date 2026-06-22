@@ -321,8 +321,7 @@ class _ExportWizardDialogState extends State<ExportWizardDialog> {
               // Customer Filter
               Row(
                 children: [
-                  const Text('3. Filter by Customer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textSecondary)),
-                  const Spacer(),
+                  const Expanded(child: Text('3. Filter by Customer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textSecondary))),
                   Switch(
                     value: _filterByCustomer,
                     activeColor: AppColors.primary,
@@ -348,8 +347,7 @@ class _ExportWizardDialogState extends State<ExportWizardDialog> {
               // Metrics Selection
               Row(
                 children: [
-                  const Text('4. Select Metrics to Export', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textSecondary)),
-                  const Spacer(),
+                  const Expanded(child: Text('4. Select Metrics to Export', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textSecondary))),
                   TextButton(
                     onPressed: () {
                       setState(() {

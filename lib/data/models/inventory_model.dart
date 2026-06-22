@@ -142,7 +142,7 @@ class RevenuePoint {
 
 class TopProduct {
   final String name;
-  final int quantity;
+  final double quantity;
   final double revenue;
   const TopProduct({required this.name, required this.quantity, required this.revenue});
 }

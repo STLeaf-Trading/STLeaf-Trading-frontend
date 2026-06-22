@@ -138,16 +138,18 @@ class _OrderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(children: [
-            _infoChip(Icons.calendar_today_rounded, DateFormat('d MMM yyyy').format(order.orderDate)),
-            const SizedBox(width: 8),
-            _infoChip(Icons.local_shipping_rounded, 'Deliver: ${DateFormat('d MMM').format(order.deliveryDate)}'),
-            const SizedBox(width: 8),
-            _infoChip(Icons.payment_rounded, order.paymentMethod),
-            const Spacer(),
-            if (order.paymentStatus != 'Pending')
-              StatusBadge(status: order.paymentStatus),
-          ]),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _infoChip(Icons.calendar_today_rounded, DateFormat('d MMM yyyy').format(order.orderDate)),
+              _infoChip(Icons.local_shipping_rounded, 'Deliver: ${DateFormat('d MMM').format(order.deliveryDate)}'),
+              _infoChip(Icons.payment_rounded, order.paymentMethod),
+              if (order.paymentStatus != 'Pending')
+                StatusBadge(status: order.paymentStatus),
+            ],
+          ),
         ],
       ),
     );
@@ -219,45 +221,97 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                 children: [
                   Text('Order Status', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 20),
-                  Row(
-                    children: statusSteps.asMap().entries.map((e) {
-                      final idx = e.key;
-                      final step = e.value;
-                      final currentIdx = statusSteps.indexOf(order.orderStatus);
-                      final isDone = idx <= currentIdx;
-                      final isCurrent = idx == currentIdx;
-                      return Expanded(
-                        child: Row(
-                          children: [
-                            Column(children: [
-                              Container(
-                                width: 32, height: 32,
-                                decoration: BoxDecoration(
-                                  color: isDone ? AppColors.primary : AppColors.border,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  isDone ? Icons.check_rounded : Icons.circle_outlined,
-                                  size: 16, color: AppColors.white,
+                  LayoutBuilder(builder: (ctx, constraints) {
+                    if (constraints.maxWidth < 500) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: statusSteps.asMap().entries.map((e) {
+                          final idx = e.key;
+                          final step = e.value;
+                          final currentIdx = statusSteps.indexOf(order.orderStatus);
+                          final isDone = idx <= currentIdx;
+                          final isCurrent = idx == currentIdx;
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Column(
+                                children: [
+                                  Container(
+                                    width: 32, height: 32,
+                                    decoration: BoxDecoration(
+                                      color: isDone ? AppColors.primary : AppColors.border,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      isDone ? Icons.check_rounded : Icons.circle_outlined,
+                                      size: 16, color: AppColors.white,
+                                    ),
+                                  ),
+                                  if (idx < statusSteps.length - 1)
+                                    Container(width: 2, height: 24, color: isDone && idx < currentIdx ? AppColors.primary : AppColors.border),
+                                ],
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(step, style: TextStyle(
+                                    fontSize: 14, fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                                    color: isDone ? AppColors.primary : AppColors.textMuted,
+                                  )),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(step, style: TextStyle(
-                                fontSize: 10, fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w400,
-                                color: isDone ? AppColors.primary : AppColors.textMuted,
-                              ), textAlign: TextAlign.center),
-                            ]),
-                            if (idx < statusSteps.length - 1)
-                              Expanded(child: Container(height: 2, color: isDone && idx < currentIdx ? AppColors.primary : AppColors.border)),
-                          ],
-                        ),
+                            ],
+                          );
+                        }).toList(),
                       );
-                    }).toList(),
-                  ),
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: statusSteps.asMap().entries.map((e) {
+                        final idx = e.key;
+                        final step = e.value;
+                        final currentIdx = statusSteps.indexOf(order.orderStatus);
+                        final isDone = idx <= currentIdx;
+                        final isCurrent = idx == currentIdx;
+                        return Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Column(children: [
+                                Container(
+                                  width: 32, height: 32,
+                                  decoration: BoxDecoration(
+                                    color: isDone ? AppColors.primary : AppColors.border,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isDone ? Icons.check_rounded : Icons.circle_outlined,
+                                    size: 16, color: AppColors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(step, style: TextStyle(
+                                  fontSize: 10, fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w400,
+                                  color: isDone ? AppColors.primary : AppColors.textMuted,
+                                ), textAlign: TextAlign.center),
+                              ]),
+                              if (idx < statusSteps.length - 1)
+                                Expanded(child: Padding(
+                                  padding: const EdgeInsets.only(top: 16),
+                                  child: Container(height: 2, color: isDone && idx < currentIdx ? AppColors.primary : AppColors.border),
+                                )),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }),
                 ],
               ),
             ),
             const SizedBox(height: 20),
+            _CustomerNotesCard(order: order),
 
             LayoutBuilder(builder: (ctx, constraints) {
               final isWide = constraints.maxWidth > 700;
@@ -328,14 +382,7 @@ class _OrderItemsCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text('${item.quantity == item.quantity.truncate() ? item.quantity.toInt() : item.quantity.toStringAsFixed(2)} $unit x RM ${item.price.toStringAsFixed(2)}',
                         style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                      if (item.remarks != null && item.remarks!.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: AppColors.warningLight, borderRadius: BorderRadius.circular(6)),
-                          child: Text('Note: ${item.remarks}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.warning)),
-                        ),
-                      ],
+
                     ]),
                   ),
                   Text(formatter.format(item.subtotal), style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -384,26 +431,7 @@ class _OrderSummaryCard extends StatelessWidget {
             ],
             StatusBadge(status: order.orderStatus),
           ]),
-          if (order.customerComment != null && order.customerComment!.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.info.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.info.withOpacity(0.2)),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Row(children: [
-                  Icon(Icons.chat_bubble_outline_rounded, size: 14, color: AppColors.info),
-                  SizedBox(width: 6),
-                  Text('Customer Note', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.info)),
-                ]),
-                const SizedBox(height: 4),
-                Text(order.customerComment!, style: const TextStyle(fontSize: 13)),
-              ]),
-            ),
-          ],
+
           // Show cancellation reason if cancelled
           if (order.orderStatus == 'Cancelled' && order.cancellationReason != null) ...[
             const SizedBox(height: 12),
@@ -693,31 +721,56 @@ class _AdminInstalmentCardState extends State<AdminInstalmentCard> {
         ]),
         if (!entry.isPaid && !entry.isLate) ...[  
           const SizedBox(height: 8),
-          Row(children: [
-            Expanded(
-              child: AppButton(
-                label: entry.status == 'Under Review' ? 'Confirm Payment' : 'Mark Paid',
-                icon: Icons.check_circle_outline_rounded,
-                onPressed: () => _showMarkPaidDialog(context, plan, entry, idx, false, provider),
+          LayoutBuilder(builder: (ctx, constraints) {
+            if (constraints.maxWidth < 400) {
+              return Column(children: [
+                AppButton(
+                  label: entry.status == 'Under Review' ? 'Confirm Payment' : 'Mark Paid',
+                  icon: Icons.check_circle_outline_rounded,
+                  width: double.infinity,
+                  onPressed: () => _showMarkPaidDialog(context, plan, entry, idx, false, provider),
+                ),
+                const SizedBox(height: 8),
+                AppButton(
+                  label: entry.status == 'Under Review' ? 'Reject (Mark Pending)' : 'Mark Late',
+                  icon: entry.status == 'Under Review' ? Icons.close_rounded : Icons.warning_amber_rounded,
+                  isDanger: true,
+                  width: double.infinity,
+                  onPressed: () {
+                    if (entry.status == 'Under Review') {
+                      provider.rejectPhasePayment(plan.id, idx);
+                    } else {
+                      _showMarkPaidDialog(context, plan, entry, idx, true, provider);
+                    }
+                  },
+                ),
+              ]);
+            }
+            return Row(children: [
+              Expanded(
+                child: AppButton(
+                  label: entry.status == 'Under Review' ? 'Confirm Payment' : 'Mark Paid',
+                  icon: Icons.check_circle_outline_rounded,
+                  onPressed: () => _showMarkPaidDialog(context, plan, entry, idx, false, provider),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AppButton(
-                label: entry.status == 'Under Review' ? 'Reject (Mark Pending)' : 'Mark Late',
-                icon: entry.status == 'Under Review' ? Icons.close_rounded : Icons.warning_amber_rounded,
-                isDanger: true,
-                onPressed: () {
-                  if (entry.status == 'Under Review') {
-                    // Reject payment logic
-                    provider.rejectPhasePayment(plan.id, idx);
-                  } else {
-                    _showMarkPaidDialog(context, plan, entry, idx, true, provider);
-                  }
-                },
+              const SizedBox(width: 8),
+              Expanded(
+                child: AppButton(
+                  label: entry.status == 'Under Review' ? 'Reject (Mark Pending)' : 'Mark Late',
+                  icon: entry.status == 'Under Review' ? Icons.close_rounded : Icons.warning_amber_rounded,
+                  isDanger: true,
+                  onPressed: () {
+                    if (entry.status == 'Under Review') {
+                      provider.rejectPhasePayment(plan.id, idx);
+                    } else {
+                      _showMarkPaidDialog(context, plan, entry, idx, true, provider);
+                    }
+                  },
+                ),
               ),
-            ),
-          ]),
+            ]);
+          }),
         ],
       ]),
     );
@@ -875,6 +928,71 @@ class _AdminInstalmentCardState extends State<AdminInstalmentCard> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
       child: Text(status, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+}
+
+class _CustomerNotesCard extends StatelessWidget {
+  final OrderModel order;
+  const _CustomerNotesCard({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasOrderNote = order.customerComment != null && order.customerComment!.isNotEmpty;
+    final itemNotes = order.items.where((i) => i.remarks != null && i.remarks!.isNotEmpty).toList();
+    
+    if (!hasOrderNote && itemNotes.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.warning),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Customer Comments & Instructions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.warning))),
+          ]),
+          const SizedBox(height: 16),
+          if (hasOrderNote) ...[
+            const Text('Checkout Note:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.warning)),
+            const SizedBox(height: 4),
+            Text(order.customerComment!, style: const TextStyle(fontSize: 14)),
+            if (itemNotes.isNotEmpty) const Divider(height: 24, color: AppColors.warning),
+          ],
+          if (itemNotes.isNotEmpty) ...[
+            const Text('Item-Specific Notes:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.warning)),
+            const SizedBox(height: 8),
+            ...itemNotes.map((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('• ', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.warning)),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, fontFamily: 'Nunito'),
+                        children: [
+                          TextSpan(text: '${item.productName}: ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                          TextSpan(text: item.remarks!),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
+        ],
+      ),
     );
   }
 }

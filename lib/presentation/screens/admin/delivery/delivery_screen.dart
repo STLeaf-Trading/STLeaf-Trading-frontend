@@ -49,20 +49,38 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                   const SizedBox(height: 24),
 
                   // Stats
-                  Row(children: [
-                    for (final s in ['Pending / Packed', 'Out For Delivery', 'Delivered'])
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: StatCard(
-                            title: s,
-                            value: '${_filterItems(s, provider.deliveries).length}',
-                            icon: _icon(s),
-                            color: _color(s),
+                  LayoutBuilder(builder: (context, constraints) {
+                    if (constraints.maxWidth < 600) {
+                      return Column(
+                        children: [
+                          for (final s in ['Pending / Packed', 'Out For Delivery', 'Delivered'])
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: StatCard(
+                                title: s,
+                                value: '${_filterItems(s, provider.deliveries).length}',
+                                icon: _icon(s),
+                                color: _color(s),
+                              ),
+                            ),
+                        ],
+                      );
+                    }
+                    return Row(children: [
+                      for (final s in ['Pending / Packed', 'Out For Delivery', 'Delivered'])
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: StatCard(
+                              title: s,
+                              value: '${_filterItems(s, provider.deliveries).length}',
+                              icon: _icon(s),
+                              color: _color(s),
+                            ),
                           ),
                         ),
-                      ),
-                  ]),
+                    ]);
+                  }),
                   const SizedBox(height: 28),
 
                   ...['Pending / Packed', 'Out For Delivery', 'Delivered'].map((status) {
@@ -145,27 +163,32 @@ class _DeliveryCard extends StatelessWidget {
             ],
           ),
           const Divider(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Left column: Company info
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          LayoutBuilder(builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 500;
+            final leftCol = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Delivery Address', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary)),
+                const SizedBox(height: 6),
+                Text(companyName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                const SizedBox(height: 4),
+                Text(address, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4)),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
                   children: [
-                    const Text('Delivery Address', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary)),
-                    const SizedBox(height: 6),
-                    Text(companyName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    const SizedBox(height: 4),
-                    Text(address, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4)),
-                    const SizedBox(height: 16),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.person_rounded, size: 14, color: AppColors.textMuted),
                         const SizedBox(width: 6),
                         Text(customer?.contactPerson ?? 'Unknown', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
-                        const SizedBox(width: 16),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         const Icon(Icons.phone_rounded, size: 14, color: AppColors.textMuted),
                         const SizedBox(width: 6),
                         Text(customer?.phoneNumber ?? 'Unknown', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
@@ -173,53 +196,69 @@ class _DeliveryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 16),
-              // Right column: Order items
-              Expanded(
-                flex: 3,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(8)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Items Ordered', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.primary)),
-                      const SizedBox(height: 8),
-                      ...order.items.map((i) {
-                        final pIdx = products.indexWhere((p) => p.id == i.productId);
-                        final pData = pIdx >= 0 ? products[pIdx] : null;
+              ],
+            );
 
-                        final name = i.product?.name ?? (i.productName == 'Unknown' && pData != null ? pData.name : (i.productName == 'Unknown' ? 'Item' : i.productName));
-                        final code = i.product?.itemCode ?? (i.itemCode.isEmpty && pData != null ? pData.itemCode : i.itemCode);
-                        final unit = i.product?.packType ?? (i.packType == 'kg' && pData != null ? pData.packType : i.packType);
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+            final rightCol = Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(8)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Items Ordered', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.primary)),
+                  const SizedBox(height: 8),
+                  ...order.items.map((i) {
+                    final pIdx = products.indexWhere((p) => p.id == i.productId);
+                    final pData = pIdx >= 0 ? products[pIdx] : null;
+
+                    final name = i.product?.name ?? (i.productName == 'Unknown' && pData != null ? pData.name : (i.productName == 'Unknown' ? 'Item' : i.productName));
+                    final code = i.product?.itemCode ?? (i.itemCode.isEmpty && pData != null ? pData.itemCode : i.itemCode);
+                    final unit = i.product?.packType ?? (i.packType == 'kg' && pData != null ? pData.packType : i.packType);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(child: Text('• $name ($code)', style: const TextStyle(fontSize: 13))),
-                                  Text('${i.quantity} $unit', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                              if (i.remarks != null && i.remarks!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4, left: 12),
-                                  child: Text('Note: ${i.remarks}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.warning)),
-                                ),
+                              Expanded(child: Text('• $name ($code)', style: const TextStyle(fontSize: 13))),
+                              Text('${i.quantity} $unit', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                             ],
                           ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
+                          if (i.remarks != null && i.remarks!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 12),
+                              child: Text('Note: ${i.remarks}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.warning)),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
               ),
-            ],
-          ),
+            );
+
+            if (isWide) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 2, child: leftCol),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 3, child: rightCol),
+                ],
+              );
+            } else {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  leftCol,
+                  const SizedBox(height: 16),
+                  rightCol,
+                ],
+              );
+            }
+          }),
           
           if (order.orderStatus == 'Out For Delivery') ...[
             const SizedBox(height: 20),

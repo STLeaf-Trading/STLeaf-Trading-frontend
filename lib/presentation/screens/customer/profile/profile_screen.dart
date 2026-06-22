@@ -35,6 +35,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final totalSpent = orders.fold(0.0, (sum, o) => sum + o.totalAmount);
     final user = auth.currentUser;
 
+    if (user == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     // Fetch credit score from CustomerProvider
     final customers = context.watch<CustomerProvider>().customers;
     final customer = customers.isNotEmpty
@@ -64,7 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 40, backgroundColor: Colors.white.withOpacity(0.2),
                     child: Text(
-                      (user?.name ?? 'U')[0].toUpperCase(),
+                      (user.name.isNotEmpty) ? user.name[0].toUpperCase() : 'U',
                       style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.white),
                     ),
                   ),

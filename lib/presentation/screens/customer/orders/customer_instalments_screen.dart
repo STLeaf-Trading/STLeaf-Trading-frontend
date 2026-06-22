@@ -97,63 +97,106 @@ class _InstalmentCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
+              LayoutBuilder(builder: (ctx, constraints) {
+                final isNarrow = constraints.maxWidth < 360;
+                
+                Widget buildStats() {
+                  if (isNarrow) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Total Amount', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                        Text(fmt.format(plan.totalAmount), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        _StatItem(label: 'Total Amount', value: fmt.format(plan.totalAmount)),
+                        const SizedBox(height: 8),
+                        _StatItem(label: 'Outstanding', value: fmt.format(plan.totalRemaining), color: isCompleted ? AppColors.success : AppColors.danger),
+                        const SizedBox(height: 8),
+                        _StatItem(label: 'Progress', value: '${plan.paidCount} / ${plan.numberOfPeriods} Paid'),
                       ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: _StatItem(label: 'Total Amount', value: fmt.format(plan.totalAmount))),
+                      Expanded(child: _StatItem(label: 'Outstanding', value: fmt.format(plan.totalRemaining), color: isCompleted ? AppColors.success : AppColors.danger)),
+                      Expanded(child: _StatItem(label: 'Progress', value: '${plan.paidCount} / ${plan.numberOfPeriods} Paid')),
+                    ],
+                  );
+                }
+
+                Widget buildButtons() {
+                  if (isNarrow) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text('Outstanding', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                        Text(fmt.format(plan.totalRemaining), style: TextStyle(fontWeight: FontWeight.w700, color: isCompleted ? AppColors.success : AppColors.danger)),
+                        AppButton(
+                          label: 'View Order',
+                          icon: Icons.receipt_rounded,
+                          isOutlined: true,
+                          onPressed: () => context.go('/shop/orders/${plan.orderId}'),
+                        ),
+                        const SizedBox(height: 12),
+                        AppButton(
+                          label: isCompleted ? 'Details' : 'Pay Phase',
+                          icon: isCompleted ? Icons.receipt_long_rounded : Icons.payment_rounded,
+                          onPressed: () => context.go('/shop/orders/${plan.orderId}/instalment'),
+                        ),
                       ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Progress', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                        Text('${plan.paidCount} / ${plan.numberOfPeriods} Paid', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppButton(
-                      label: 'View Order',
-                      icon: Icons.receipt_rounded,
-                      isOutlined: true,
-                      onPressed: () => context.go('/shop/orders/${plan.orderId}'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: AppButton(
-                      label: isCompleted ? 'Details' : 'Pay Phase',
-                      icon: isCompleted ? Icons.receipt_long_rounded : Icons.payment_rounded,
-                      onPressed: () => context.go('/shop/orders/${plan.orderId}/instalment'),
-                    ),
-                  ),
-                ],
-              ),
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          label: 'View Order',
+                          icon: Icons.receipt_rounded,
+                          isOutlined: true,
+                          onPressed: () => context.go('/shop/orders/${plan.orderId}'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AppButton(
+                          label: isCompleted ? 'Details' : 'Pay Phase',
+                          icon: isCompleted ? Icons.receipt_long_rounded : Icons.payment_rounded,
+                          onPressed: () => context.go('/shop/orders/${plan.orderId}/instalment'),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    buildStats(),
+                    const SizedBox(height: 16),
+                    buildButtons(),
+                  ],
+                );
+              }),
             ],
           ),
         ),
       ),
       ),
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? color;
+
+  const _StatItem({required this.label, required this.value, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+        Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+      ],
     );
   }
 }

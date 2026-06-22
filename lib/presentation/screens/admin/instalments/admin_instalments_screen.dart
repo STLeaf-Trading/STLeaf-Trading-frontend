@@ -37,9 +37,11 @@ class _AdminInstalmentsScreenState extends State<AdminInstalmentsScreen> {
       child: Column(
         children: [
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,13 +134,27 @@ class _AdminInstalmentCard extends StatelessWidget {
               ],
             ),
             const Divider(height: 32),
-            Row(
-              children: [
-                Expanded(child: _summaryBox('Total Amount', fmt.format(plan.totalAmount))),
-                Expanded(child: _summaryBox('Remaining', fmt.format(plan.totalRemaining), color: isCompleted ? AppColors.success : AppColors.danger)),
-                Expanded(child: _summaryBox('Progress', '${plan.paidCount} / ${plan.numberOfPeriods} Paid')),
-              ],
-            ),
+            LayoutBuilder(builder: (context, constraints) {
+              if (constraints.maxWidth < 400) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _summaryBox('Total Amount', fmt.format(plan.totalAmount)),
+                    const SizedBox(height: 12),
+                    _summaryBox('Remaining', fmt.format(plan.totalRemaining), color: isCompleted ? AppColors.success : AppColors.danger),
+                    const SizedBox(height: 12),
+                    _summaryBox('Progress', '${plan.paidCount} / ${plan.numberOfPeriods} Paid'),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: _summaryBox('Total Amount', fmt.format(plan.totalAmount))),
+                  Expanded(child: _summaryBox('Remaining', fmt.format(plan.totalRemaining), color: isCompleted ? AppColors.success : AppColors.danger)),
+                  Expanded(child: _summaryBox('Progress', '${plan.paidCount} / ${plan.numberOfPeriods} Paid')),
+                ],
+              );
+            }),
             const SizedBox(height: 20),
             const Text('Phases', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
             const SizedBox(height: 12),
@@ -205,50 +221,80 @@ class _AdminPhaseRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: statusColor.withOpacity(0.12),
-            child: Text('${entry.periodNumber}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: statusColor)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 500;
+        final mainRow = Row(
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: statusColor.withOpacity(0.12),
+              child: Text('${entry.periodNumber}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: statusColor)),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Due: ${DateFormat('d MMM yyyy').format(entry.dueDate)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isOverdue ? AppColors.danger : AppColors.textPrimary)),
+                  if (entry.paymentMethod?.isNotEmpty == true && entry.status != 'Pending')
+                    Text('Method: ${entry.paymentMethod}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('Due: ${DateFormat('d MMM yyyy').format(entry.dueDate)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isOverdue ? AppColors.danger : AppColors.textPrimary)),
-                if (entry.paymentMethod?.isNotEmpty == true && entry.status != 'Pending')
-                  Text('Method: ${entry.paymentMethod}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text(fmt.format(entry.amountDue), style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                  child: Text(statusText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: statusColor)),
+                ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(fmt.format(entry.amountDue), style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
-                child: Text(statusText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: statusColor)),
+            if (isWide && !entry.isPaid) ...[
+              const SizedBox(width: 16),
+              AppButton(
+                label: entry.status == 'Under Review' ? 'Review' : 'Mark Done',
+                icon: entry.status == 'Under Review' ? Icons.visibility_rounded : Icons.check_circle_rounded,
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => _AdminVerifyPhaseDialog(plan: plan, entryIndex: entryIndex),
+                  );
+                },
               ),
             ],
-          ),
-          const SizedBox(width: 16),
-          if (!entry.isPaid)
-            AppButton(
-              label: entry.status == 'Under Review' ? 'Review' : 'Mark Done',
-              icon: entry.status == 'Under Review' ? Icons.visibility_rounded : Icons.check_circle_rounded,
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (_) => _AdminVerifyPhaseDialog(plan: plan, entryIndex: entryIndex),
-                );
-              },
-            ),
-        ],
-      ),
+          ],
+        );
+        if (isWide) {
+          return mainRow;
+        } else {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              mainRow,
+              if (!entry.isPaid) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: AppButton(
+                    label: entry.status == 'Under Review' ? 'Review' : 'Mark Done',
+                    icon: entry.status == 'Under Review' ? Icons.visibility_rounded : Icons.check_circle_rounded,
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => _AdminVerifyPhaseDialog(plan: plan, entryIndex: entryIndex),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
+          );
+        }
+      }),
     );
   }
 }

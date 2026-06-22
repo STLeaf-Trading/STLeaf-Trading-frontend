@@ -36,10 +36,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
       currentRoute: '/admin/customers',
       child: Column(
         children: [
-          Padding(
+          Container(
+            width: double.infinity,
             padding: const EdgeInsets.fromLTRB(28, 28, 28, 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 16,
               children: [
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Customers', style: Theme.of(context).textTheme.displaySmall),
@@ -71,18 +74,26 @@ class _CustomersScreenState extends State<CustomersScreen> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: provider.isLoading
-                ? const LoadingWidget()
-                : provider.customers.isEmpty
-                    ? const EmptyState(title: 'No customers found', icon: Icons.people_outline)
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
-                        itemCount: provider.customers.length,
-                        itemBuilder: (ctx, i) => _CustomerCard(
-                          customer: provider.customers[i], formatter: formatter,
-                          onTap: () => context.go('/admin/customers/${provider.customers[i].id}'),
-                        ),
-                      ),
+            child: LayoutBuilder(builder: (context, constraints) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: constraints.maxWidth > 700 ? constraints.maxWidth : 700,
+                  child: provider.isLoading
+                      ? const LoadingWidget()
+                      : provider.customers.isEmpty
+                          ? const EmptyState(title: 'No customers found', icon: Icons.people_outline)
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 28),
+                              itemCount: provider.customers.length,
+                              itemBuilder: (ctx, i) => _CustomerCard(
+                                customer: provider.customers[i], formatter: formatter,
+                                onTap: () => context.go('/admin/customers/${provider.customers[i].id}'),
+                              ),
+                            ),
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -216,7 +227,7 @@ class CustomerDetailScreen extends StatelessWidget {
                 style: IconButton.styleFrom(backgroundColor: AppColors.mint),
               ),
               const SizedBox(width: 16),
-              Text(c.companyName, style: Theme.of(context).textTheme.displaySmall),
+              Expanded(child: Text(c.companyName, style: Theme.of(context).textTheme.displaySmall)),
               const SizedBox(width: 12),
               StatusBadge(status: c.status),
             ]),
@@ -339,11 +350,14 @@ class _CreditCard extends StatelessWidget {
         children: [
           Text('Instalment Overview', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 20),
-          Row(children: [
-            Expanded(child: _creditStat('Active Debt', formatter.format(totalDebt), AppColors.danger)),
-            Expanded(child: _creditStat('Payment Phase', '$totalPaidPhases / $totalPhases', AppColors.primary)),
-            Expanded(child: _creditStat('Next Payment', nextPaymentDate != null ? DateFormat('d MMM yyyy').format(nextPaymentDate) : 'N/A', AppColors.warning)),
-          ]),
+          Wrap(
+            spacing: 16, runSpacing: 16,
+            children: [
+              SizedBox(width: 150, child: _creditStat('Active Debt', formatter.format(totalDebt), AppColors.danger)),
+              SizedBox(width: 150, child: _creditStat('Payment Phase', '$totalPaidPhases / $totalPhases', AppColors.primary)),
+              SizedBox(width: 150, child: _creditStat('Next Payment', nextPaymentDate != null ? DateFormat('d MMM yyyy').format(nextPaymentDate) : 'N/A', AppColors.warning)),
+            ],
+          ),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

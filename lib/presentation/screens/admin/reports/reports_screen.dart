@@ -30,38 +30,59 @@ class ReportsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Reports', style: Theme.of(context).textTheme.displaySmall),
-                  const Text('Business analytics overview', style: TextStyle(color: AppColors.textSecondary)),
-                ]),
-                AppButton(
-                  label: 'Export Report',
-                  icon: Icons.download_rounded,
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => const ExportWizardDialog(defaultFormat: 'PDF'),
-                    );
-                  },
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: 16,
+                children: [
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Reports', style: Theme.of(context).textTheme.displaySmall),
+                    const Text('Business analytics overview', style: TextStyle(color: AppColors.textSecondary)),
+                  ]),
+                  AppButton(
+                    label: 'Export Report',
+                    icon: Icons.download_rounded,
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => const ExportWizardDialog(defaultFormat: 'PDF'),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 28),
 
             // Summary KPIs
-            Row(children: [
-              Expanded(child: StatCard(title: 'Weekly Revenue', value: formatter.format(stats.revenueData.fold(0.0, (s, e) => s + e.amount)),
-                icon: Icons.payments_rounded, color: AppColors.primary, isGradient: true)),
-              const SizedBox(width: 16),
-              Expanded(child: StatCard(title: 'Total Orders', value: '${context.watch<OrderProvider>().allOrders.length}',
-                icon: Icons.receipt_long_rounded, color: AppColors.success, isGradient: true)),
-              const SizedBox(width: 16),
-              Expanded(child: StatCard(title: 'Outstanding Debt', value: formatter.format(stats.outstandingDebts),
-                icon: Icons.account_balance_wallet_rounded, color: AppColors.danger, isGradient: true)),
-            ]),
+            LayoutBuilder(builder: (context, constraints) {
+              if (constraints.maxWidth < 600) {
+                return Column(
+                  children: [
+                    StatCard(title: 'Weekly Revenue', value: formatter.format(stats.revenueData.fold(0.0, (s, e) => s + e.amount)),
+                      icon: Icons.payments_rounded, color: AppColors.primary, isGradient: true),
+                    const SizedBox(height: 16),
+                    StatCard(title: 'Total Orders', value: '${context.watch<OrderProvider>().allOrders.length}',
+                      icon: Icons.receipt_long_rounded, color: AppColors.success, isGradient: true),
+                    const SizedBox(height: 16),
+                    StatCard(title: 'Outstanding Debt', value: formatter.format(stats.outstandingDebts),
+                      icon: Icons.account_balance_wallet_rounded, color: AppColors.danger, isGradient: true),
+                  ],
+                );
+              }
+              return Row(children: [
+                Expanded(child: StatCard(title: 'Weekly Revenue', value: formatter.format(stats.revenueData.fold(0.0, (s, e) => s + e.amount)),
+                  icon: Icons.payments_rounded, color: AppColors.primary, isGradient: true)),
+                const SizedBox(width: 16),
+                Expanded(child: StatCard(title: 'Total Orders', value: '${context.watch<OrderProvider>().allOrders.length}',
+                  icon: Icons.receipt_long_rounded, color: AppColors.success, isGradient: true)),
+                const SizedBox(width: 16),
+                Expanded(child: StatCard(title: 'Outstanding Debt', value: formatter.format(stats.outstandingDebts),
+                  icon: Icons.account_balance_wallet_rounded, color: AppColors.danger, isGradient: true)),
+              ]);
+            }),
             const SizedBox(height: 28),
 
             // Revenue Chart

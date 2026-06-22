@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'dart:html' as html;
+
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/providers/settings_provider.dart';
@@ -32,7 +32,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return AdminLayout(
       currentRoute: '/admin/dashboard',
-      child: provider.isLoading
+      child: provider.isLoading || provider.stats == null
           ? const LoadingWidget(message: 'Loading dashboard...')
           : _DashboardBody(stats: provider.stats!, formatter: formatter),
     );
@@ -383,7 +383,7 @@ class _TopProductsCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(child: Text(stats.topProducts[i].name,
                   style: const TextStyle(fontSize: 13, color: AppColors.textSecondary))),
-                Text('${stats.topProducts[i].quantity} kg',
+                Text('${stats.topProducts[i].quantity.toStringAsFixed(1).replaceAll(RegExp(r'\\.0$'), '')} kg',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
               ],
             ),

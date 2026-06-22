@@ -41,7 +41,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: _emailCtrl.text.trim(),
       password: _passCtrl.text.trim(),
     );
-    if (mounted && success) context.go('/shop');
+    if (mounted && success) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Registration Successful', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+          content: const Text('We have sent a verification link to your email address. Please verify your email before logging in.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                context.go('/login');
+              },
+              child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
