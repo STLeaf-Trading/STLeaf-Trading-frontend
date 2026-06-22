@@ -28,18 +28,6 @@ A **production-ready Flutter app** for **ST Leaf Trading**, a fresh vegetable wh
 
 ---
 
-## 🎨 Design System
-
-| Token | Value |
-|---|---|
-| Primary Green | `#1B6B35` |
-| Accent Green | `#4CAF50` |
-| Mint Background | `#E8F5E9` |
-| Danger Red | `#D32F2F` |
-| Font | Inter (Google Fonts) |
-| Design Language | Material 3 |
-
----
 
 ## 🗂 Project Structure
 
@@ -148,9 +136,6 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 5. Add your `google-services.json` (Android) and `GoogleService-Info.plist` (iOS).
 6. For Web, update `web/index.html` with your Firebase config.
 7. Apply the Firestore security rules from the backend repo.
-
-### Admin Account Setup
-Create a user in Firebase Auth, then manually add a Firestore document in `users/{uid}` with `role: "ADMIN"`.
 
 ---
 
