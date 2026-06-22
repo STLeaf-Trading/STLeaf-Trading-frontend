@@ -47,7 +47,10 @@ class CartScreen extends StatelessWidget {
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: cart.items.length,
-                    itemBuilder: (ctx, i) => _CartItemCard(item: cart.items[i]),
+                    itemBuilder: (ctx, i) => _CartItemCard(
+                      key: ValueKey(cart.items[i].product.id),
+                      item: cart.items[i],
+                    ),
                   ),
                 ),
                 _CartSummary(cart: cart),
@@ -57,13 +60,39 @@ class CartScreen extends StatelessWidget {
   }
 }
 
-class _CartItemCard extends StatelessWidget {
+class _CartItemCard extends StatefulWidget {
   final CartItem item;
-  const _CartItemCard({required this.item});
+  const _CartItemCard({super.key, required this.item});
+
+  @override
+  State<_CartItemCard> createState() => _CartItemCardState();
+}
+
+class _CartItemCardState extends State<_CartItemCard> {
+  late final TextEditingController _qtyCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final qty = widget.item.quantity;
+    _qtyCtrl = TextEditingController(
+      text: qty == qty.truncate() ? qty.toInt().toString() : qty.toStringAsFixed(2),
+    );
+  }
+
+  @override
+  void dispose() {
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cart = context.read<CartProvider>();
+    final allProducts = context.watch<ProductProvider>().allProducts;
+    final p = allProducts.firstWhere((prod) => prod.id == widget.item.product.id, orElse: () => widget.item.product);
+    
+    final bool isUnavailable = !p.isActive || p.isOutOfStock;
 
     return AppCard(
       padding: const EdgeInsets.all(14),
@@ -71,24 +100,41 @@ class _CartItemCard extends StatelessWidget {
         children: [
           Container(
             width: 60, height: 60,
-            decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.eco_rounded, color: AppColors.primary, size: 28),
+            decoration: BoxDecoration(color: isUnavailable ? Colors.grey[300] : AppColors.mint, borderRadius: BorderRadius.circular(12)),
+            child: Stack(
+              children: [
+                Center(child: Icon(Icons.eco_rounded, color: isUnavailable ? Colors.grey[500] : AppColors.primary, size: 28)),
+                if (isUnavailable)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                      child: Center(
+                        child: Text(
+                          !p.isActive ? (p.disabledReason?.toUpperCase() ?? 'UNAVAILABLE') : 'OUT OF STOCK',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 8),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(widget.item.product.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 2),
-                Text('RM ${item.product.effectivePrice.toStringAsFixed(2)} / ${item.product.packType}',
+                Text('RM ${widget.item.product.effectivePrice.toStringAsFixed(2)} / ${widget.item.product.packType}',
                   style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                if (item.remarks != null && item.remarks!.isNotEmpty) ...[
+                if (widget.item.remarks != null && widget.item.remarks!.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: AppColors.warningLight, borderRadius: BorderRadius.circular(4)),
-                    child: Text('Note: ${item.remarks}', style: const TextStyle(fontSize: 10, color: AppColors.warning)),
+                    child: Text('Note: ${widget.item.remarks}', style: const TextStyle(fontSize: 10, color: AppColors.warning)),
                   ),
                 ],
               ],
@@ -97,16 +143,86 @@ class _CartItemCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('RM ${item.subtotal.toStringAsFixed(2)}',
+              Text('RM ${widget.item.subtotal.toStringAsFixed(2)}',
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primary)),
               const SizedBox(height: 8),
               Row(children: [
-                _qtyBtn(Icons.remove_rounded, () => cart.updateQuantity(item.product.id, item.quantity - 1)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                // Decrease
+                GestureDetector(
+                  onTap: () {
+                    final newQty = (widget.item.quantity - 1);
+                    if (newQty <= 0) {
+                      cart.removeItem(widget.item.product.id);
+                    } else {
+                      cart.updateQuantity(widget.item.product.id, newQty);
+                      _qtyCtrl.text = newQty == newQty.truncate()
+                          ? newQty.toInt().toString()
+                          : newQty.toStringAsFixed(2);
+                    }
+                  },
+                  child: Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.remove_rounded, size: 16, color: AppColors.primary),
+                  ),
                 ),
-                _qtyBtn(Icons.add_rounded, () => cart.updateQuantity(item.product.id, item.quantity + 1)),
+                // Manual quantity input
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: SizedBox(
+                    width: 52,
+                    child: TextField(
+                      controller: _qtyCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      textAlign: TextAlign.center,
+                      enabled: !isUnavailable,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                        ),
+                      ),
+                      onSubmitted: (val) {
+                        final parsed = double.tryParse(val);
+                        if (parsed != null && parsed > 0) {
+                          cart.updateQuantity(widget.item.product.id, parsed);
+                        } else {
+                          final qty = widget.item.quantity;
+                          _qtyCtrl.text = qty == qty.truncate() ? qty.toInt().toString() : qty.toStringAsFixed(2);
+                        }
+                      },
+                      onTapOutside: (_) {
+                        final parsed = double.tryParse(_qtyCtrl.text);
+                        if (parsed != null && parsed > 0) {
+                          cart.updateQuantity(widget.item.product.id, parsed);
+                        } else {
+                          final qty = widget.item.quantity;
+                          _qtyCtrl.text = qty == qty.truncate() ? qty.toInt().toString() : qty.toStringAsFixed(2);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                // Increase
+                GestureDetector(
+                  onTap: isUnavailable ? null : () {
+                    final newQty = widget.item.quantity + 1;
+                    cart.updateQuantity(widget.item.product.id, newQty);
+                    _qtyCtrl.text = newQty.toInt().toString();
+                  },
+                  child: Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(color: isUnavailable ? Colors.grey[300] : AppColors.mint, borderRadius: BorderRadius.circular(8)),
+                    child: Icon(Icons.add_rounded, size: 16, color: isUnavailable ? Colors.grey[500] : AppColors.primary),
+                  ),
+                ),
               ]),
             ],
           ),
@@ -114,20 +230,8 @@ class _CartItemCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _qtyBtn(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 28, height: 28,
-        decoration: BoxDecoration(
-          color: AppColors.mint, borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, size: 16, color: AppColors.primary),
-      ),
-    );
-  }
 }
+
 
 class _CartSummary extends StatelessWidget {
   final CartProvider cart;
@@ -135,6 +239,16 @@ class _CartSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final allProducts = context.watch<ProductProvider>().allProducts;
+    bool hasUnavailableItems = false;
+    for (var item in cart.items) {
+      final p = allProducts.firstWhere((prod) => prod.id == item.product.id, orElse: () => item.product);
+      if (!p.isActive || p.isOutOfStock) {
+        hasUnavailableItems = true;
+        break;
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -158,10 +272,10 @@ class _CartSummary extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           AppButton(
-            label: 'Proceed to Checkout',
+            label: hasUnavailableItems ? 'Remove Unavailable Items' : 'Proceed to Checkout',
             icon: Icons.arrow_forward_rounded,
             width: double.infinity,
-            onPressed: () => context.go('/shop/checkout'),
+            onPressed: hasUnavailableItems ? null : () => context.go('/shop/checkout'),
           ),
         ],
       ),

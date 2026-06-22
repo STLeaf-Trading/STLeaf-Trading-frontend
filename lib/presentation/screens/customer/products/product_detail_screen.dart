@@ -15,17 +15,60 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  int _quantity = 1;
+  double _quantity = 1.0;
   final TextEditingController _remarksController = TextEditingController();
+  late final TextEditingController _qtyCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _qtyCtrl = TextEditingController(text: '1');
+  }
 
   @override
   void dispose() {
     _remarksController.dispose();
+    _qtyCtrl.dispose();
     super.dispose();
   }
 
-  void _increment() => setState(() => _quantity++);
-  void _decrement() => setState(() { if (_quantity > 1) _quantity--; });
+  void _updateQtyUI() {
+    _qtyCtrl.text = _quantity == _quantity.truncate() ? _quantity.toInt().toString() : _quantity.toStringAsFixed(2);
+  }
+
+  void _increment(int maxStock) {
+    if (_quantity < maxStock) {
+      setState(() {
+        _quantity++;
+        _updateQtyUI();
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Max stock available: $maxStock'), backgroundColor: AppColors.warning, duration: const Duration(seconds: 1)),
+      );
+    }
+  }
+
+  void _decrement() => setState(() { 
+    if (_quantity > 1) {
+      _quantity--; 
+      _updateQtyUI();
+    }
+  });
+
+  void _setQuantity(double val, int maxStock) {
+    if (val > maxStock) {
+      setState(() {
+        _quantity = maxStock.toDouble();
+        _updateQtyUI();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Max stock available: $maxStock'), backgroundColor: AppColors.warning, duration: const Duration(seconds: 1)),
+      );
+    } else if (val > 0) {
+      setState(() => _quantity = val);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,17 +83,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     void addToCart() {
-      cart.addToCart(p, quantity: _quantity, remarks: _remarksController.text.trim());
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('${p.name} x$_quantity added to cart!'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 1),
-      ));
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (context.mounted) context.go('/shop');
-      });
+      try {
+        cart.addToCart(p, quantity: _quantity, remarks: _remarksController.text.trim());
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${p.name} x$_quantity added to cart!'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 1),
+        ));
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (context.mounted) context.go('/shop');
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ));
+      }
     }
 
     return CustomerLayout(
@@ -69,8 +122,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Expanded(child: _ProductInfo(
                     product: p, 
                     quantity: _quantity,
-                    onIncrease: _increment,
+                    qtyCtrl: _qtyCtrl,
+                    onIncrease: () => _increment(p.stockQuantity),
                     onDecrease: _decrement,
+                    onQuantityChange: (val) => _setQuantity(val, p.stockQuantity),
                     onAddToCart: addToCart,
                     remarksController: _remarksController,
                   )),
@@ -84,8 +139,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 _ProductInfo(
                   product: p, 
                   quantity: _quantity,
-                  onIncrease: _increment,
+                  qtyCtrl: _qtyCtrl,
+                  onIncrease: () => _increment(p.stockQuantity),
                   onDecrease: _decrement,
+                  onQuantityChange: (val) => _setQuantity(val, p.stockQuantity),
                   onAddToCart: addToCart,
                   remarksController: _remarksController,
                 ),
@@ -134,15 +191,19 @@ class _ProductImage extends StatelessWidget {
 
 class _ProductInfo extends StatelessWidget {
   final product;
-  final int quantity;
+  final double quantity;
+  final TextEditingController qtyCtrl;
   final VoidCallback onIncrease, onDecrease, onAddToCart;
+  final ValueChanged<double> onQuantityChange;
   final TextEditingController remarksController;
 
   const _ProductInfo({
     required this.product, 
     required this.quantity,
+    required this.qtyCtrl,
     required this.onIncrease, 
-    required this.onDecrease, 
+    required this.onDecrease,
+    required this.onQuantityChange,
     required this.onAddToCart,
     required this.remarksController,
   });
@@ -217,9 +278,34 @@ class _ProductInfo extends StatelessWidget {
                 icon: const Icon(Icons.remove_rounded),
                 style: IconButton.styleFrom(foregroundColor: AppColors.primary),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text('$quantity', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              SizedBox(
+                width: 60,
+                child: TextField(
+                  controller: qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
+                  onSubmitted: (v) {
+                    final parsed = double.tryParse(v);
+                    if (parsed != null && parsed > 0) {
+                      onQuantityChange(parsed);
+                    } else {
+                      qtyCtrl.text = quantity == quantity.truncate() ? quantity.toInt().toString() : quantity.toStringAsFixed(2);
+                    }
+                  },
+                  onTapOutside: (_) {
+                    final parsed = double.tryParse(qtyCtrl.text);
+                    if (parsed != null && parsed > 0) {
+                      onQuantityChange(parsed);
+                    } else {
+                      qtyCtrl.text = quantity == quantity.truncate() ? quantity.toInt().toString() : quantity.toStringAsFixed(2);
+                    }
+                  },
+                ),
               ),
               IconButton(
                 onPressed: onIncrease,
@@ -257,7 +343,7 @@ class _ProductInfo extends StatelessWidget {
           Expanded(child: AppButton(
             label: 'Add to Cart',
             icon: Icons.shopping_basket_rounded,
-            onPressed: p.isOutOfStock ? null : onAddToCart,
+            onPressed: (!product.isActive || product.isOutOfStock) ? null : onAddToCart,
             width: double.infinity,
           )),
           const SizedBox(width: 12),

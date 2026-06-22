@@ -8,6 +8,8 @@ import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/admin_layout.dart';
 
+import 'add_customer_dialog.dart';
+
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
 
@@ -21,6 +23,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CustomerProvider>().loadCustomers();
+      context.read<InstalmentProvider>().loadAllPlans();
     });
   }
 
@@ -42,7 +45,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   Text('Customers', style: Theme.of(context).textTheme.displaySmall),
                   const Text('Manage wholesale customer accounts', style: TextStyle(color: AppColors.textSecondary)),
                 ]),
-                AppButton(label: 'Add Customer', icon: Icons.person_add_rounded, onPressed: () {}),
+                AppButton(
+                  label: 'Add Customer',
+                  icon: Icons.person_add_rounded,
+                  onPressed: () {
+                    showDialog(context: context, builder: (_) => const AddCustomerDialog());
+                  },
+                ),
               ],
             ),
           ),
@@ -138,9 +147,7 @@ class _CustomerCardState extends State<_CustomerCard> {
                       style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                     const SizedBox(height: 10),
                     Row(children: [
-                      _infoChip(Icons.credit_card_rounded, 'Credit: ${c.creditTerm}'),
-                      const SizedBox(width: 8),
-                      _infoChip(Icons.account_balance_wallet_rounded, 'Limit: RM ${c.creditLimit.toStringAsFixed(0)}'),
+                      _infoChip(Icons.verified_user_rounded, 'Credit Score: ${c.creditScore.toInt()}%'),
                     ]),
                   ],
                 ),
@@ -149,26 +156,12 @@ class _CustomerCardState extends State<_CustomerCard> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Outstanding', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  Text('Outstanding Debt', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   Text(widget.formatter.format(c.outstandingBalance),
                     style: TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w800,
                       color: c.outstandingBalance > 0 ? AppColors.danger : AppColors.success,
                     )),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: 100,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: creditUsedPct, minHeight: 6,
-                        backgroundColor: AppColors.border, color: creditColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text('${(creditUsedPct * 100).toStringAsFixed(0)}% used',
-                    style: TextStyle(fontSize: 10, color: creditColor)),
                 ],
               ),
               const SizedBox(width: 12),
@@ -269,9 +262,8 @@ class _CustomerInfoCard extends StatelessWidget {
           _row('Contact Person', c.contactPerson),
           _row('Phone Number', c.phoneNumber),
           _row('Email', c.email),
-          _row('Business Reg No', c.businessRegistrationNo),
           _row('Address', c.address),
-          _row('Credit Term', c.creditTerm),
+          _row('Credit Score', '${c.creditScore.toInt()}%'),
           _row('Status', c.status),
         ],
       ),
@@ -299,29 +291,74 @@ class _CreditCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct = c.creditLimit == 0 ? 0.0 : (c.outstandingBalance / c.creditLimit).clamp(0.0, 1.0);
+    final instalmentsProvider = context.watch<InstalmentProvider>();
+    final activePlans = instalmentsProvider.plans.where((p) => p.customerId == c.id && p.status == 'Active').toList();
+
+    if (activePlans.isEmpty) {
+      return AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Instalment Overview', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 20),
+            const Text('This customer currently has no active instalments.', style: TextStyle(color: AppColors.textMuted)),
+          ],
+        ),
+      );
+    }
+
+    double totalDebt = 0;
+    double totalPaid = 0;
+    double totalAmount = 0;
+    int totalPaidPhases = 0;
+    int totalPhases = 0;
+    DateTime? nextPaymentDate;
+
+    for (var p in activePlans) {
+      totalDebt += p.totalRemaining;
+      totalPaid += p.totalPaid;
+      totalAmount += p.totalAmount;
+      totalPaidPhases += p.paidCount;
+      totalPhases += p.numberOfPeriods;
+      
+      final pendingEntries = p.entries.where((e) => !e.isPaid).toList()
+        ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      if (pendingEntries.isNotEmpty) {
+        final date = pendingEntries.first.dueDate;
+        if (nextPaymentDate == null || date.isBefore(nextPaymentDate)) {
+          nextPaymentDate = date;
+        }
+      }
+    }
+
+    final pct = totalAmount == 0 ? 0.0 : (totalPaid / totalAmount).clamp(0.0, 1.0);
 
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Credit Overview', style: Theme.of(context).textTheme.titleLarge),
+          Text('Instalment Overview', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 20),
           Row(children: [
-            Expanded(child: _creditStat('Credit Limit', formatter.format(c.creditLimit), AppColors.primary)),
-            Expanded(child: _creditStat('Outstanding', formatter.format(c.outstandingBalance), AppColors.danger)),
-            Expanded(child: _creditStat('Available', formatter.format(c.availableCredit), AppColors.success)),
+            Expanded(child: _creditStat('Active Debt', formatter.format(totalDebt), AppColors.danger)),
+            Expanded(child: _creditStat('Payment Phase', '$totalPaidPhases / $totalPhases', AppColors.primary)),
+            Expanded(child: _creditStat('Next Payment', nextPaymentDate != null ? DateFormat('d MMM yyyy').format(nextPaymentDate) : 'N/A', AppColors.warning)),
           ]),
-          const SizedBox(height: 20),
-          Text('Credit Utilization — ${(pct * 100).toStringAsFixed(1)}%',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Instalment Progress (Paid %)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text('${(pct * 100).toStringAsFixed(1)}%', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary)),
+            ],
+          ),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: pct, minHeight: 12,
               backgroundColor: AppColors.border,
-              color: pct > 0.9 ? AppColors.danger : pct > 0.7 ? AppColors.warning : AppColors.success,
+              color: AppColors.primary,
             ),
           ),
         ],
@@ -331,6 +368,7 @@ class _CreditCard extends StatelessWidget {
 
   Widget _creditStat(String label, String value, Color color) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
         const SizedBox(height: 4),

@@ -204,7 +204,7 @@ class _ProductCardState extends State<_ProductCard> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: () => context.go('/shop/products/${p.id}'),
+        onTap: (!p.isActive || p.isOutOfStock) ? null : () => context.go('/shop/products/${p.id}'),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
@@ -243,14 +243,22 @@ class _ProductCardState extends State<_ProductCard> {
                           style: const TextStyle(color: AppColors.white, fontSize: 9, fontWeight: FontWeight.w800),
                         ),
                       )),
-                    if (p.isOutOfStock)
+                    if (!p.isActive || p.isOutOfStock)
                       Positioned.fill(child: Container(
                         decoration: const BoxDecoration(
-                          color: Colors.black38,
+                          color: Colors.black54,
                           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                         ),
-                        child: const Center(child: Text('OUT OF STOCK',
-                          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 10))),
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              !p.isActive ? (p.disabledReason?.toUpperCase() ?? 'UNAVAILABLE') : 'OUT OF STOCK',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 11),
+                            ),
+                          ),
+                        ),
                       )),
                   ],
                 ),
@@ -276,7 +284,7 @@ class _ProductCardState extends State<_ProductCard> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: p.isOutOfStock ? null : () {
+                          onPressed: (!p.isActive || p.isOutOfStock) ? null : () {
                             context.go('/shop/products/${p.id}');
                           },
                           icon: const Icon(Icons.add_shopping_cart_rounded, size: 14),

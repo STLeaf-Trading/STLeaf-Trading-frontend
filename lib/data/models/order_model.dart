@@ -7,7 +7,7 @@ class OrderItemModel {
   final String itemCode;
   final String packType;
   final ProductModel? product;
-  final int quantity;
+  final double quantity;
   final double price;
   final double subtotal;
   final String? remarks;
@@ -30,7 +30,7 @@ class OrderItemModel {
         itemCode: json['itemCode'] ?? '',
         packType: json['packType'] ?? 'kg',
         product: json['product'] != null ? ProductModel.fromFirestore(json['product'] as DocumentSnapshot) : null,
-        quantity: json['quantity'] ?? 0,
+        quantity: (json['quantity'] ?? 0).toDouble(),
         price: (json['price'] ?? 0).toDouble(),
         subtotal: (json['subtotal'] ?? 0).toDouble(),
         remarks: json['remarks'],
@@ -61,8 +61,11 @@ class OrderModel {
   final String paymentMethod;
   final String paymentStatus;
   final String orderStatus;
+  final String? deliveryAddress;
   final List<OrderItemModel> items;
   final String? cancellationReason;
+  final String? customerComment;
+  final String? instalmentPlanId;
 
   const OrderModel({
     required this.id,
@@ -77,8 +80,11 @@ class OrderModel {
     required this.paymentMethod,
     required this.paymentStatus,
     required this.orderStatus,
+    this.deliveryAddress,
     required this.items,
     this.cancellationReason,
+    this.customerComment,
+    this.instalmentPlanId,
   });
 
   bool get isPending => orderStatus == 'Pending';
@@ -108,7 +114,10 @@ class OrderModel {
       paymentMethod: json['paymentMethod'] ?? 'Cash',
       paymentStatus: json['paymentStatus'] ?? 'Pending',
       orderStatus: json['orderStatus'] ?? 'Pending',
+      deliveryAddress: json['deliveryAddress'],
       cancellationReason: json['cancellationReason'],
+      customerComment: json['customerComment'],
+      instalmentPlanId: json['instalmentPlanId'],
       items: (json['items'] as List<dynamic>? ?? [])
           .map((e) => OrderItemModel.fromMap(e as Map<String, dynamic>))
           .toList(),
@@ -127,6 +136,10 @@ class OrderModel {
         'paymentMethod': paymentMethod,
         'paymentStatus': paymentStatus,
         'orderStatus': orderStatus,
+        if (deliveryAddress != null && deliveryAddress!.isNotEmpty) 'deliveryAddress': deliveryAddress,
         'items': items.map((e) => e.toJson()).toList(),
+        if (cancellationReason != null) 'cancellationReason': cancellationReason,
+        if (customerComment != null && customerComment!.isNotEmpty) 'customerComment': customerComment,
+        if (instalmentPlanId != null) 'instalmentPlanId': instalmentPlanId,
       };
 }

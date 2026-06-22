@@ -8,8 +8,12 @@ import 'providers/app_providers.dart';
 import 'providers/settings_provider.dart';
 import 'routes/app_router.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -29,6 +33,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => DeliveryProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => InstalmentProvider()),
       ],
       child: const STLeafApp(),
     ),

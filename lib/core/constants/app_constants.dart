@@ -61,11 +61,26 @@ class AppConstants {
     'Failed',
   ];
 
-  // Payment Methods
   static const List<String> paymentMethods = [
     'Cash / COD',
-    'Bank Transfer',
-    'Credit Term',
+    'FPX (Online Banking)',
+    'Touch \'n Go (TNG)',
+    'Instalment',
+  ];
+
+  // Instalment period presets
+  static const List<String> instalmentPresets = [
+    '1 Month',
+    '3 Months',
+    '6 Months',
+    'Custom',
+  ];
+
+  // Instalment payment methods (subset)
+  static const List<String> instalmentPaymentMethods = [
+    'Cash / COD',
+    'FPX (Online Banking)',
+    'Touch \'n Go (TNG)',
   ];
 
   // Payment Status

@@ -8,7 +8,6 @@ import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/providers/settings_provider.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/admin_layout.dart';
-import 'package:stleaf_trading/presentation/screens/admin/reports/export_wizard_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -67,12 +66,6 @@ class _DashboardBody extends StatelessWidget {
                   ),
                 ],
               ),
-              AppButton(
-                label: 'Export CSV',
-                icon: Icons.download_rounded,
-                isOutlined: true,
-                onPressed: () => _exportCsv(context),
-              ),
             ],
           ),
           const SizedBox(height: 32),
@@ -129,13 +122,6 @@ class _DashboardBody extends StatelessWidget {
           _SettingsCard(),
         ],
       ),
-    );
-  }
-
-  void _exportCsv(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => const ExportWizardDialog(defaultFormat: 'CSV'),
     );
   }
 }
@@ -306,6 +292,18 @@ class _RevenueChartCard extends StatelessWidget {
                         return const SizedBox.shrink();
                       },
                     ),
+                  ),
+                ),
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => AppColors.white,
+                    tooltipBorder: const BorderSide(color: AppColors.textPrimary),
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) => LineTooltipItem(
+                        spot.y.toStringAsFixed(0),
+                        const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                      )).toList();
+                    },
                   ),
                 ),
                 borderData: FlBorderData(show: false),

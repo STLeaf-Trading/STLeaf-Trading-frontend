@@ -12,14 +12,17 @@ import '../presentation/screens/admin/customers/customers_screen.dart';
 import '../presentation/screens/admin/orders/admin_orders_screen.dart';
 import '../presentation/screens/admin/delivery/delivery_screen.dart';
 import '../presentation/screens/admin/reports/reports_screen.dart';
+import '../presentation/screens/admin/instalments/admin_instalments_screen.dart';
 import '../presentation/screens/customer/home/home_screen.dart';
 import '../presentation/screens/customer/products/product_detail_screen.dart';
 import '../presentation/screens/customer/cart/cart_screen.dart';
 import '../presentation/screens/customer/checkout/checkout_screen.dart';
 import '../presentation/screens/customer/orders/my_orders_screen.dart';
 import '../presentation/screens/customer/orders/cancel_order_screen.dart';
+import '../presentation/screens/customer/orders/instalment_detail_screen.dart';
 import '../presentation/screens/customer/profile/profile_screen.dart';
 import '../presentation/screens/customer/profile/edit_profile_screen.dart';
+import '../presentation/screens/customer/orders/customer_instalments_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/login',
@@ -53,6 +56,7 @@ final router = GoRouter(
     GoRoute(path: '/admin/orders/:id',
       builder: (ctx, state) => AdminOrderDetailScreen(orderId: state.pathParameters['id']!)),
     GoRoute(path: '/admin/delivery', builder: (ctx, state) => const DeliveryScreen()),
+    GoRoute(path: '/admin/instalments', builder: (ctx, state) => const AdminInstalmentsScreen()),
     GoRoute(path: '/admin/reports', builder: (ctx, state) => const ReportsScreen()),
 
     // Customer Routes
@@ -66,6 +70,9 @@ final router = GoRouter(
       builder: (ctx, state) => OrderDetailScreen(orderId: state.pathParameters['id']!)),
     GoRoute(path: '/shop/orders/:id/cancel',
       builder: (ctx, state) => CancelOrderScreen(orderId: state.pathParameters['id']!)),
+    GoRoute(path: '/shop/orders/:id/instalment',
+      builder: (ctx, state) => InstalmentDetailScreen(orderId: state.pathParameters['id']!)),
+    GoRoute(path: '/shop/instalments', builder: (ctx, state) => const CustomerInstalmentsScreen()),
     GoRoute(path: '/shop/profile', builder: (ctx, state) => const ProfileScreen()),
     GoRoute(path: '/shop/edit-profile', builder: (ctx, state) => const EditProfileScreen()),
   ],

@@ -16,6 +16,7 @@ class ProductModel {
   final int lowStockLevel;
   final String? imageUrl;
   final String status;
+  final String? disabledReason;
 
   const ProductModel({
     required this.id,
@@ -33,13 +34,14 @@ class ProductModel {
     this.lowStockLevel = 10,
     this.imageUrl,
     required this.status,
+    this.disabledReason,
   });
 
   double get effectivePrice => promotionPrice ?? price;
   bool get hasPromotion => promotionPrice != null && promotionPrice! < price;
   bool get isLowStock => stockQuantity <= lowStockLevel;
-  bool get isOutOfStock => stockQuantity == 0;
-  bool get isActive => status == 'Active';
+  bool get isOutOfStock => stockQuantity <= 0;
+  bool get isActive => status != 'Inactive';
 
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
     final json = doc.data() as Map<String, dynamic>? ?? {};
@@ -61,6 +63,7 @@ class ProductModel {
       lowStockLevel: json['lowStockLevel'] ?? 10,
       imageUrl: json['imageUrl'],
       status: json['status'] ?? 'Active',
+      disabledReason: json['disabledReason'],
     );
   }
 
@@ -79,5 +82,6 @@ class ProductModel {
         'lowStockLevel': lowStockLevel,
         'imageUrl': imageUrl,
         'status': status,
+        if (disabledReason != null) 'disabledReason': disabledReason,
       };
 }

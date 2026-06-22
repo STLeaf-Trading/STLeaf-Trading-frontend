@@ -85,6 +85,7 @@ lib/
         │   ├── customers/customers_screen.dart
         │   ├── orders/admin_orders_screen.dart
         │   ├── delivery/delivery_screen.dart
+        │   ├── instalments/admin_instalments_screen.dart
         │   └── reports/reports_screen.dart
         └── customer/
             ├── home/home_screen.dart
@@ -174,6 +175,7 @@ Create a user in Firebase Auth, then manually add a Firestore document in `users
 | Orders | Status filter tabs, order pipeline, Confirm → Packed → Delivered flow |
 | Order Detail | Status stepper, items, payment summary, action buttons (Confirm/Packed/Delivered), admin Cancel with reason, shows cancellation reason |
 | Delivery | Delivery-only orders (deliveryFee > 0), status tracking |
+| Instalments | Track all customer instalment plans, review uploaded receipts, and mark phases as Paid/Late |
 | Reports | Analytics charts and tables |
 
 ### Customer Portal
@@ -182,9 +184,10 @@ Create a user in Firebase Auth, then manually add a Firestore document in `users
 | Home / Shop | Hero banner, category filter pills, product grid, floating contact widget |
 | Product Detail | Freshness badge (0–10 scale), qty selector, add to cart → auto-returns to shop |
 | Cart | Item list, qty controls, subtotal |
-| Checkout | Choose Pickup (free) or Company Delivery (requires address, fee set by admin), Cash/COD payment |
+| Checkout | Choose Pickup (free) or Company Delivery (requires address, fee set by admin), Cash/FPX/TNG/Instalment payment |
 | My Orders | Progress bars, status filter chips, Cancel button (Pending/Confirmed only) |
 | Order Detail | Vertical status stepper, cancellation reason display, Cancel Order button |
+| Instalments | Track active instalment plans, click to upload receipts, and pay phases via FPX/TNG/Cash |
 | Cancel Order | Reason selector (preset + custom "Other" option), confirmation dialog |
 | Profile | Stats, Edit Profile, My Orders, Contact Support, T&C, Privacy Policy, Delete Account, Logout |
 | Edit Profile | Update company name, contact person, phone, delivery address (email read-only) |
@@ -230,7 +233,8 @@ Create a user in Firebase Auth, then manually add a Firestore document in `users
 /admin/orders                 → Orders management
 /admin/orders/:id             → Order detail (with Cancel button)
 /admin/delivery               → Delivery tracking (fee > 0 only)
-/admin/reports                → Reports & analytics
+/admin/instalments            → Instalment plan tracking & approval
+/admin/reports                → Reports & analytics (Export to PDF/CSV)
 
 /shop                         → Customer: Product catalog
 /shop/products/:id            → Customer: Product detail
@@ -239,6 +243,7 @@ Create a user in Firebase Auth, then manually add a Firestore document in `users
 /shop/orders                  → Customer: My orders
 /shop/orders/:id              → Customer: Order detail
 /shop/orders/:id/cancel       → Customer: Cancel order (reason screen)
+/shop/instalments             → Customer: Instalment plans & payments
 /shop/profile                 → Customer: Profile
 /shop/edit-profile            → Customer: Edit profile & address
 ```
@@ -265,7 +270,8 @@ Pending / Confirmed → Cancelled (Customer can self-cancel)
 
 - **Pickup** — Customer collects from J1809 Pasar Jasin. Delivery fee = RM 0.00.
 - **Company Delivery** — Requires customer to have a saved address. Fee is set by admin in Store Settings and persisted in Firestore (`settings/general`).
-- **Payment Method** — Cash / COD only.
+- **Payment Methods** — Cash / COD, FPX (Online Banking), Touch 'n Go (TNG), Instalment.
+- **Receipt Uploads** — Customers using FPX/TNG or paying Instalment phases can upload their payment receipts (via `image_picker` and `firebase_storage`).
 - **Delivery Page (Admin)** — Only shows orders where `deliveryFee > 0`.
 
 ---
@@ -314,7 +320,6 @@ flutter build appbundle --release
 | Feature | Status |
 |---|---|
 | Push Notifications (order updates) | Planned |
-| FPX / Touch 'n Go Payment | Planned |
 | Promotion & Discount Engine | Planned |
 | Loyalty Points Program | Planned |
 | iOS App | Planned |

@@ -67,6 +67,7 @@ class _SidebarContent extends StatelessWidget {
       _SidebarItem(icon: Icons.people_rounded, label: 'Customers', route: '/admin/customers'),
       _SidebarItem(icon: Icons.receipt_long_rounded, label: 'Orders', route: '/admin/orders'),
       _SidebarItem(icon: Icons.local_shipping_rounded, label: 'Delivery', route: '/admin/delivery'),
+      _SidebarItem(icon: Icons.account_balance_wallet_rounded, label: 'Instalments', route: '/admin/instalments'),
       _SidebarItem(icon: Icons.bar_chart_rounded, label: 'Reports', route: '/admin/reports'),
     ];
 
@@ -238,6 +239,7 @@ class _MobileAppBar extends StatelessWidget implements PreferredSizeWidget {
     if (currentRoute.contains('customers')) return 'Customers';
     if (currentRoute.contains('orders')) return 'Orders';
     if (currentRoute.contains('delivery')) return 'Delivery';
+    if (currentRoute.contains('instalments')) return 'Instalments';
     if (currentRoute.contains('reports')) return 'Reports';
     return 'ST Leaf Admin';
   }

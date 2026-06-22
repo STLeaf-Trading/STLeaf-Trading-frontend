@@ -43,7 +43,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             ]),
           ),
           const SizedBox(height: 12),
-          // Status filter
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -126,26 +125,32 @@ class _OrderCard extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
           ]),
           const SizedBox(height: 12),
-          // Progress bar
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (order.paymentMethod == 'Instalment')
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: const Color(0xFFE1BEE7), borderRadius: BorderRadius.circular(4)),
+                    child: const Text('INSTALMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF6A1B9A))),
+                  )
+                else
+                  const SizedBox(),
                 StatusBadge(status: order.orderStatus),
-                StatusBadge(status: order.paymentStatus),
-              ]),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: _statusProgress(order.orderStatus),
-                  minHeight: 5,
-                  backgroundColor: AppColors.border,
-                  color: statusColor,
-                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: _statusProgress(order.orderStatus),
+                minHeight: 5,
+                backgroundColor: AppColors.border,
+                color: statusColor,
               ),
-            ],
-          ),
+            ),
+          ]),
           const SizedBox(height: 10),
           Row(children: [
             const Icon(Icons.local_shipping_outlined, size: 13, color: AppColors.textMuted),
@@ -179,19 +184,37 @@ class _OrderCard extends StatelessWidget {
 }
 
 // ─── Order Detail ──────────────────────────────────────────────
-class OrderDetailScreen extends StatelessWidget {
+class OrderDetailScreen extends StatefulWidget {
   final String orderId;
   const OrderDetailScreen({super.key, required this.orderId});
 
   @override
+  State<OrderDetailScreen> createState() => _OrderDetailScreenState();
+}
+
+class _OrderDetailScreenState extends State<OrderDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<OrderProvider>();
+      final auth = context.read<AuthProvider>();
+      if (provider.allOrders.isEmpty && auth.currentUser != null) {
+        provider.loadOrders(customerId: auth.currentUser!.id);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final orders = context.watch<OrderProvider>().allOrders;
+    final provider = context.watch<OrderProvider>();
+    final orders = provider.allOrders;
     final formatter = NumberFormat.currency(symbol: 'RM ', decimalDigits: 2);
     final order = orders.isNotEmpty
-        ? orders.firstWhere((o) => o.id == orderId, orElse: () => orders.first)
+        ? orders.firstWhere((o) => o.id == widget.orderId, orElse: () => orders.first)
         : null;
 
-    if (order == null) return CustomerLayout(currentRoute: '/shop/orders', child: const LoadingWidget());
+    if (order == null || provider.isLoading) return CustomerLayout(currentRoute: '/shop/orders', child: const LoadingWidget());
 
     final statusSteps = ['Pending', 'Confirmed', 'Packed', 'Out For Delivery', 'Delivered'];
     final currentIdx = order.orderStatus == 'Cancelled' ? -1 : statusSteps.indexOf(order.orderStatus);
@@ -266,6 +289,38 @@ class OrderDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
+            // Delivery Address
+            if (order.deliveryAddress != null && order.deliveryAddress != 'Pickup') ...[
+              AppCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Row(children: [
+                    Icon(Icons.location_on_outlined, color: AppColors.primary, size: 18),
+                    SizedBox(width: 8),
+                    Text('Delivery Address', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(order.deliveryAddress!, style: const TextStyle(fontSize: 13)),
+                ]),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Customer comment (visible to customer)
+            if (order.customerComment != null && order.customerComment!.isNotEmpty) ...[
+              AppCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Row(children: [
+                    Icon(Icons.chat_bubble_outline_rounded, color: AppColors.info, size: 18),
+                    SizedBox(width: 8),
+                    Text('Your Order Notes', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.info)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(order.customerComment!, style: const TextStyle(fontSize: 13)),
+                ]),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Items
             AppCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -276,7 +331,9 @@ class OrderDetailScreen extends StatelessWidget {
                   child: Row(children: [
                     const Icon(Icons.eco_rounded, color: AppColors.primary, size: 16),
                     const SizedBox(width: 10),
-                    Expanded(child: Text('${item.product?.name ?? "Product"} x${item.quantity}')),
+                    Expanded(child: Text(
+                      '${item.productName} × ${item.quantity == item.quantity.truncate() ? item.quantity.toInt() : item.quantity.toStringAsFixed(2)} ${item.packType}',
+                    )),
                     Text(formatter.format(item.subtotal), style: const TextStyle(fontWeight: FontWeight.w700)),
                   ]),
                 )),
@@ -291,11 +348,8 @@ class OrderDetailScreen extends StatelessWidget {
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
-                  StatusBadge(status: order.paymentStatus),
-                  const SizedBox(width: 8),
-                  Text(order.paymentMethod, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                  Text('Payment Method: ${order.paymentMethod}', style: const TextStyle(fontSize: 13, color: AppColors.textMuted, fontWeight: FontWeight.w500)),
                 ]),
-                // Cancellation reason
                 if (order.orderStatus == 'Cancelled' && order.cancellationReason != null) ...[
                   const SizedBox(height: 12),
                   Container(
@@ -314,7 +368,20 @@ class OrderDetailScreen extends StatelessWidget {
                 ],
               ]),
             ),
-            // Cancel button (only shown if order can still be cancelled)
+
+            // Instalment schedule button
+            if (order.paymentMethod == 'Instalment') ...[
+              const SizedBox(height: 16),
+              AppButton(
+                label: 'View Instalment Schedule',
+                icon: Icons.calendar_month_rounded,
+                isOutlined: true,
+                width: double.infinity,
+                onPressed: () => context.push('/shop/orders/${order.id}/instalment'),
+              ),
+            ],
+
+            // Cancel button
             if (order.orderStatus == 'Pending' || order.orderStatus == 'Confirmed') ...[
               const SizedBox(height: 16),
               AppButton(

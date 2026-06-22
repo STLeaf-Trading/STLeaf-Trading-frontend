@@ -10,8 +10,21 @@ import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart'
 import 'package:stleaf_trading/presentation/widgets/common/contact_support_widget.dart';
 import 'package:stleaf_trading/presentation/screens/customer/profile/legal_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CustomerProvider>().loadCustomers();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +34,17 @@ class ProfileScreen extends StatelessWidget {
 
     final totalSpent = orders.fold(0.0, (sum, o) => sum + o.totalAmount);
     final user = auth.currentUser;
+
+    // Fetch credit score from CustomerProvider
+    final customers = context.watch<CustomerProvider>().customers;
+    final customer = customers.isNotEmpty
+        ? customers.firstWhere((c) => c.id == user?.id, orElse: () => customers.first)
+        : null;
+    final creditScore = customer?.creditScore ?? 100.0;
+    final creditHistory = customer?.creditHistory ?? [];
+    final onTimeCount = creditHistory.where((h) => (h['delta'] as num? ?? 0) > 0).length;
+    final lateCount = creditHistory.where((h) => (h['delta'] as num? ?? 0) < 0).length;
+    Color creditColor = creditScore >= 80 ? AppColors.success : creditScore >= 50 ? AppColors.warning : AppColors.danger;
 
     return CustomerLayout(
       currentRoute: '/shop/profile',
@@ -72,6 +96,45 @@ class ProfileScreen extends StatelessWidget {
               Expanded(child: StatCard(title: 'Total Spent', value: formatter.format(totalSpent),
                 icon: Icons.payments_rounded, color: AppColors.success)),
             ]),
+            const SizedBox(height: 12),
+
+            // Credit Score Card
+            AppCard(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Row(children: [
+                    Icon(Icons.star_rate_rounded, color: AppColors.warning, size: 20),
+                    SizedBox(width: 8),
+                    Text('Credit Score', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  ]),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: creditColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text('${creditScore.toStringAsFixed(0)}%',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: creditColor)),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: creditScore / 100,
+                    minHeight: 10,
+                    backgroundColor: AppColors.border,
+                    color: creditColor,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(children: [
+                  _creditStat('✅ On-time', onTimeCount.toString(), AppColors.success),
+                  const SizedBox(width: 16),
+                  _creditStat('⚠️ Late', lateCount.toString(), AppColors.danger),
+                ]),
+              ]),
+            ),
             const SizedBox(height: 16),
 
             // Account options
@@ -82,6 +145,8 @@ class ProfileScreen extends StatelessWidget {
                   _optionTile(context, Icons.edit_rounded, 'Edit Profile', 'Update your details & address', () => context.push('/shop/edit-profile')),
                   _divider(),
                   _optionTile(context, Icons.receipt_long_rounded, 'My Orders', 'View your order history', () => context.go('/shop/orders')),
+                  _divider(),
+                  _optionTile(context, Icons.account_balance_wallet_rounded, 'Instalment Orders', 'View and pay instalment phases', () => context.go('/shop/instalments')),
                   _divider(),
                   _optionTile(context, Icons.storefront_rounded, 'Browse Products', 'Shop fresh vegetables', () => context.go('/shop')),
                   _divider(),
@@ -244,4 +309,17 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _divider() => const Divider(height: 1, indent: 72);
+
+  Widget _creditStat(String label, String value, Color color) {
+    return Row(children: [
+      Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+      const SizedBox(width: 6),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+        child: Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+      ),
+    ]);
+  }
 }
+

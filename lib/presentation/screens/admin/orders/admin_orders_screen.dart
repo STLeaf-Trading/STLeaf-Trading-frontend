@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/core/constants/app_constants.dart';
 import 'package:stleaf_trading/data/models/order_model.dart';
+import 'package:stleaf_trading/data/models/instalment_model.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/admin_layout.dart';
@@ -162,19 +163,34 @@ class _OrderCard extends StatelessWidget {
 }
 
 // ─── Order Detail ───────────────────────────────────────────────
-class AdminOrderDetailScreen extends StatelessWidget {
+class AdminOrderDetailScreen extends StatefulWidget {
   final String orderId;
   const AdminOrderDetailScreen({super.key, required this.orderId});
 
   @override
+  State<AdminOrderDetailScreen> createState() => _AdminOrderDetailScreenState();
+}
+
+class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<OrderProvider>();
+      if (provider.allOrders.isEmpty) provider.loadOrders();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final orders = context.watch<OrderProvider>().allOrders;
+    final provider = context.watch<OrderProvider>();
+    final orders = provider.allOrders;
     final formatter = NumberFormat.currency(symbol: 'RM ', decimalDigits: 2);
     final order = orders.isNotEmpty
-        ? orders.firstWhere((o) => o.id == orderId, orElse: () => orders.first)
+        ? orders.firstWhere((o) => o.id == widget.orderId, orElse: () => orders.first)
         : null;
 
-    if (order == null) return AdminLayout(currentRoute: '/admin/orders', child: const LoadingWidget());
+    if (order == null || provider.isLoading) return AdminLayout(currentRoute: '/admin/orders', child: const LoadingWidget());
 
     final statusSteps = AppConstants.orderStatuses.take(5).toList();
 
@@ -257,6 +273,14 @@ class AdminOrderDetailScreen extends StatelessWidget {
                       _OrderSummaryCard(order: order, formatter: formatter),
                     ]);
             }),
+            // Instalment management card
+            if (order.paymentMethod == 'Instalment') ...[
+              const SizedBox(height: 20),
+              AdminInstalmentCard(
+                orderId: order.id,
+                customerId: order.customerId,
+              ),
+            ],
           ],
         ),
       ),
@@ -302,7 +326,7 @@ class _OrderItemsCard extends StatelessWidget {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('$name ($code)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       const SizedBox(height: 2),
-                      Text('${item.quantity} $unit x RM ${item.price.toStringAsFixed(2)}',
+                      Text('${item.quantity == item.quantity.truncate() ? item.quantity.toInt() : item.quantity.toStringAsFixed(2)} $unit x RM ${item.price.toStringAsFixed(2)}',
                         style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                       if (item.remarks != null && item.remarks!.isNotEmpty) ...[
                         const SizedBox(height: 6),
@@ -341,6 +365,7 @@ class _OrderSummaryCard extends StatelessWidget {
           _row('Customer', order.customerName ?? ''),
           _row('Order Date', DateFormat('d MMM yyyy').format(order.orderDate)),
           _row('Delivery Date', DateFormat('d MMM yyyy').format(order.deliveryDate)),
+          if (order.deliveryAddress != null) _row('Delivery Address', order.deliveryAddress!),
           _row('Payment Method', order.paymentMethod),
           const Divider(height: 24),
           _row('Subtotal', formatter.format(order.subtotal)),
@@ -359,6 +384,26 @@ class _OrderSummaryCard extends StatelessWidget {
             ],
             StatusBadge(status: order.orderStatus),
           ]),
+          if (order.customerComment != null && order.customerComment!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.info.withOpacity(0.2)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Row(children: [
+                  Icon(Icons.chat_bubble_outline_rounded, size: 14, color: AppColors.info),
+                  SizedBox(width: 6),
+                  Text('Customer Note', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.info)),
+                ]),
+                const SizedBox(height: 4),
+                Text(order.customerComment!, style: const TextStyle(fontSize: 13)),
+              ]),
+            ),
+          ],
           // Show cancellation reason if cancelled
           if (order.orderStatus == 'Cancelled' && order.cancellationReason != null) ...[
             const SizedBox(height: 12),
@@ -377,6 +422,15 @@ class _OrderSummaryCard extends StatelessWidget {
           ],
           const SizedBox(height: 24),
           _buildActionButtons(context),
+          if (order.paymentMethod != 'Instalment' && order.paymentStatus != 'Paid' && order.orderStatus != 'Cancelled') ...[
+            const SizedBox(height: 12),
+            AppButton(
+              label: 'Mark Payment as Paid',
+              icon: Icons.payments_outlined,
+              width: double.infinity,
+              onPressed: () => context.read<OrderProvider>().updatePaymentStatus(order.id, 'Paid'),
+            ),
+          ],
           // Admin cancel button (any stage except already cancelled)
           if (order.orderStatus != 'Cancelled' && order.orderStatus != 'Delivered') ...[
             const SizedBox(height: 12),
@@ -489,6 +543,338 @@ class _OrderSummaryCard extends StatelessWidget {
           Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         ],
       ),
+    );
+  }
+}
+
+// ─── Instalment Management Card (Admin) ──────────────────────────
+class AdminInstalmentCard extends StatefulWidget {
+  final String orderId;
+  final String customerId;
+  const AdminInstalmentCard({super.key, required this.orderId, required this.customerId});
+
+  @override
+  State<AdminInstalmentCard> createState() => _AdminInstalmentCardState();
+}
+
+class _AdminInstalmentCardState extends State<AdminInstalmentCard> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<InstalmentProvider>().loadAllPlans();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<InstalmentProvider>();
+    final formatter = NumberFormat.currency(symbol: 'RM ', decimalDigits: 2);
+    final plan = provider.planForOrder(widget.orderId);
+
+    if (plan == null) return const SizedBox.shrink();
+
+    return AppCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Row(children: [
+            Icon(Icons.calendar_month_rounded, color: AppColors.primary, size: 18),
+            SizedBox(width: 8),
+            Text('Instalment Schedule', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          ]),
+          _planBadge(plan.status),
+        ]),
+        const SizedBox(height: 8),
+        Text('${plan.numberOfPeriods} × ${plan.periodUnit} | ${plan.perPeriodPaymentMethod}',
+          style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
+        const SizedBox(height: 6),
+        _progressRow('Paid', '${plan.paidCount}/${plan.numberOfPeriods} periods'),
+        _progressRow('Remaining', formatter.format(plan.totalRemaining)),
+        _progressRow('Total', formatter.format(plan.totalAmount)),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: plan.totalAmount > 0 ? plan.totalPaid / plan.totalAmount : 0,
+            minHeight: 8,
+            backgroundColor: AppColors.border,
+            color: plan.lateCount > 0 ? AppColors.danger : AppColors.success,
+          ),
+        ),
+        const Divider(height: 24),
+        ...plan.entries.asMap().entries.map((e) {
+          final idx = e.key;
+          final entry = e.value;
+          final isOverdue = entry.isPending && entry.dueDate.isBefore(DateTime.now());
+          return _entryRow(context, plan, entry, idx, isOverdue, formatter, provider);
+        }),
+      ]),
+    );
+  }
+
+  Widget _entryRow(
+    BuildContext context,
+    InstalmentPlanModel plan,
+    InstalmentEntry entry,
+    int idx,
+    bool isOverdue,
+    NumberFormat formatter,
+    InstalmentProvider provider,
+  ) {
+    Color statusColor;
+    String statusText;
+    if (entry.isPaid) { statusColor = AppColors.success; statusText = 'Paid'; }
+    else if (entry.isLate) { statusColor = AppColors.danger; statusText = 'Late'; }
+    else if (isOverdue) { statusColor = AppColors.danger; statusText = 'Overdue'; }
+    else if (entry.status == 'Under Review') { statusColor = AppColors.warning; statusText = 'Under Review'; }
+    else { statusColor = AppColors.pending; statusText = 'Pending'; }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: statusColor.withOpacity(0.2)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('Period ${entry.periodNumber}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
+            child: Text(statusText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Due: ${DateFormat('d MMM yyyy').format(entry.dueDate)}',
+              style: TextStyle(fontSize: 12, color: isOverdue && entry.isPending ? AppColors.danger : AppColors.textMuted)),
+            if (entry.paidAt != null)
+              Text('Paid: ${DateFormat('d MMM yyyy').format(entry.paidAt!)}',
+                style: const TextStyle(fontSize: 12, color: AppColors.success)),
+            if (entry.adminNote != null && entry.adminNote!.isNotEmpty) ...[  
+              const SizedBox(height: 4),
+              Text('Note: ${entry.adminNote}',
+                style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.danger)),
+            ],
+            if (entry.paymentMethod != null) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(4)),
+                child: Text('Method: ${entry.paymentMethod}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
+              if (entry.paymentProofUrl != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: InkWell(
+                    onTap: () {
+                      // Mock open image
+                    },
+                    child: const Text('View Payment Proof ↗', style: TextStyle(fontSize: 11, color: AppColors.primary, decoration: TextDecoration.underline)),
+                  ),
+                ),
+            ],
+          ])),
+          const SizedBox(width: 12),
+          // Edit amount button (only unpaid)
+          if (!entry.isPaid && !entry.isLate)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              color: AppColors.textMuted,
+              tooltip: 'Edit amount',
+              onPressed: () => _showEditAmountDialog(context, plan, entry, idx, provider),
+            ),
+          Text(formatter.format(entry.amountDue),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+        ]),
+        if (!entry.isPaid && !entry.isLate) ...[  
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: AppButton(
+                label: entry.status == 'Under Review' ? 'Confirm Payment' : 'Mark Paid',
+                icon: Icons.check_circle_outline_rounded,
+                onPressed: () => _showMarkPaidDialog(context, plan, entry, idx, false, provider),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: AppButton(
+                label: entry.status == 'Under Review' ? 'Reject (Mark Pending)' : 'Mark Late',
+                icon: entry.status == 'Under Review' ? Icons.close_rounded : Icons.warning_amber_rounded,
+                isDanger: true,
+                onPressed: () {
+                  if (entry.status == 'Under Review') {
+                    // Reject payment logic
+                    provider.rejectPhasePayment(plan.id, idx);
+                  } else {
+                    _showMarkPaidDialog(context, plan, entry, idx, true, provider);
+                  }
+                },
+              ),
+            ),
+          ]),
+        ],
+      ]),
+    );
+  }
+
+  Future<void> _showMarkPaidDialog(
+    BuildContext context,
+    InstalmentPlanModel plan,
+    InstalmentEntry entry,
+    int entryIndex,
+    bool isLate,
+    InstalmentProvider provider,
+  ) async {
+    final noteCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          Icon(isLate ? Icons.warning_rounded : Icons.check_circle_rounded,
+            color: isLate ? AppColors.danger : AppColors.success),
+          const SizedBox(width: 8),
+          Text(isLate ? 'Mark as Late Payment' : 'Mark as Paid',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isLate ? AppColors.dangerLight : AppColors.successLight,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Period ${entry.periodNumber} — RM ${entry.amountDue.toStringAsFixed(2)}',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(
+                isLate
+                    ? '⚠️ Credit score will decrease by 10%'
+                    : '✅ Credit score will increase by 5% (max 100%)',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isLate ? AppColors.danger : AppColors.success,
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: noteCtrl,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: isLate ? 'Admin Note (required for late)' : 'Admin Note (optional)',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              hintText: isLate ? 'Reason for late payment...' : 'Payment notes...',
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isLate ? AppColors.danger : AppColors.success,
+            ),
+            onPressed: () {
+              if (isLate && noteCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx, true);
+            },
+            child: Text(isLate ? 'Confirm Late' : 'Confirm Paid',
+              style: const TextStyle(color: AppColors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await provider.markPeriodPaid(
+        planId: plan.id,
+        customerId: plan.customerId,
+        entryIndex: entryIndex,
+        isLate: isLate,
+        adminNote: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
+      );
+    }
+    noteCtrl.dispose();
+  }
+
+  Future<void> _showEditAmountDialog(
+    BuildContext context,
+    InstalmentPlanModel plan,
+    InstalmentEntry entry,
+    int entryIndex,
+    InstalmentProvider provider,
+  ) async {
+    final ctrl = TextEditingController(text: entry.amountDue.toStringAsFixed(2));
+    final totalOtherUnpaid = plan.entries.where((e) => e != entry).fold(0.0, (s, e) => s + e.amountDue);
+    final maxAllowed = plan.totalAmount - totalOtherUnpaid;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Edit Period ${entry.periodNumber} Amount',
+          style: const TextStyle(fontWeight: FontWeight.w700)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Max allowed: RM ${maxAllowed.toStringAsFixed(2)}',
+            style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Amount (RM)',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final newAmt = double.tryParse(ctrl.text);
+      if (newAmt != null) {
+        await provider.updateEntryAmount(plan.id, entryIndex, newAmt);
+      }
+    }
+    ctrl.dispose();
+  }
+
+  Widget _progressRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+
+  Widget _planBadge(String status) {
+    Color color;
+    switch (status) {
+      case 'Completed': color = AppColors.success; break;
+      case 'Overdue': color = AppColors.danger; break;
+      default: color = AppColors.info;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+      child: Text(status, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }

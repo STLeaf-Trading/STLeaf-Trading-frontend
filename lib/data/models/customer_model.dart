@@ -13,6 +13,8 @@ class CustomerModel {
   final String creditTerm;
   final String status;
   final double outstandingBalance;
+  final double creditScore;
+  final List<Map<String, dynamic>> creditHistory;
 
   const CustomerModel({
     required this.id,
@@ -27,6 +29,8 @@ class CustomerModel {
     required this.creditTerm,
     required this.status,
     this.outstandingBalance = 0,
+    this.creditScore = 100.0,
+    this.creditHistory = const [],
   });
 
   double get availableCredit => creditLimit - outstandingBalance;
@@ -48,6 +52,10 @@ class CustomerModel {
       creditTerm: json['creditTerm'] ?? 'COD',
       status: json['status'] ?? 'Active',
       outstandingBalance: (json['outstandingBalance'] ?? 0).toDouble(),
+      creditScore: (json['creditScore'] ?? 100.0).toDouble(),
+      creditHistory: List<Map<String, dynamic>>.from(
+        (json['creditHistory'] as List<dynamic>? ?? []).map((e) => Map<String, dynamic>.from(e as Map)),
+      ),
     );
   }
 
@@ -63,5 +71,7 @@ class CustomerModel {
         'creditTerm': creditTerm,
         'status': status,
         'outstandingBalance': outstandingBalance,
+        'creditScore': creditScore,
+        'creditHistory': creditHistory,
       };
 }

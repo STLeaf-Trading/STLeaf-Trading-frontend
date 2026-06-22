@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "STLeaf Trading (Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "device": "chrome",
+      "args": [
+        "--dart-define-from-file=.env"
+      ]
+    },
+    {
+      "name": "STLeaf Trading (Android)",
+      "request": "launch",
+      "type": "dart",
+      "device": "android",
+      "args": [
+        "--dart-define-from-file=.env"
+      ]
+    },
+    {
+      "name": "STLeaf Trading (Windows)",
+      "request": "launch",
+      "type": "dart",
+      "device": "windows",
+      "args": [
+        "--dart-define-from-file=secrets.json"
+      ]
+    }
+  ]
+}

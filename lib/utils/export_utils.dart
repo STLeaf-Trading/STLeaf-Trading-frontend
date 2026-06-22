@@ -9,22 +9,65 @@ import '../data/models/customer_model.dart';
 import 'package:flutter/foundation.dart';
 
 class ExportUtils {
-  static Future<void> exportOrdersCsv(List<OrderModel> orders, {String fileNamePrefix = 'orders'}) async {
-    final fmt = DateFormat('yyyy-MM-dd');
+  static const List<String> allAvailableColumns = [
+    'Order ID',
+    'Customer ID',
+    'Customer Name',
+    'Order Date',
+    'Delivery Date',
+    'Delivery Address',
+    'Items Bought',
+    'Subtotal',
+    'Delivery Fee',
+    'Total Amount',
+    'Payment Method',
+    'Payment Status',
+    'Order Status',
+    'Cancellation Reason',
+    'Customer Comment'
+  ];
+
+  static String _getCellValue(OrderModel o, String col, DateFormat fmt) {
+    switch (col) {
+      case 'Order ID': return o.orderId;
+      case 'Customer ID': return o.customerId;
+      case 'Customer Name': return o.customerName ?? 'Unknown';
+      case 'Order Date': return fmt.format(o.orderDate);
+      case 'Delivery Date': return fmt.format(o.deliveryDate);
+      case 'Delivery Address': return o.deliveryAddress ?? '';
+      case 'Items Bought': 
+        return o.items.map((i) => '${i.quantity}x ${i.productName}').join('; ');
+      case 'Subtotal': return o.subtotal.toStringAsFixed(2);
+      case 'Delivery Fee': return o.deliveryFee.toStringAsFixed(2);
+      case 'Total Amount': return o.totalAmount.toStringAsFixed(2);
+      case 'Payment Method': return o.paymentMethod;
+      case 'Payment Status': return o.paymentStatus;
+      case 'Order Status': return o.orderStatus;
+      case 'Cancellation Reason': return o.cancellationReason ?? '';
+      case 'Customer Comment': return o.customerComment ?? '';
+      default: return '';
+    }
+  }
+
+  static Future<void> exportOrdersCsv(List<OrderModel> orders, List<String> selectedColumns, {String fileNamePrefix = 'orders'}) async {
+    final fmt = DateFormat('yyyy-MM-dd HH:mm');
     final buffer = StringBuffer();
     
     // Header
-    buffer.writeln('Order ID,Customer,Order Date,Delivery Date,Payment Method,Subtotal,Delivery Fee,Total,Status,Payment Status,Cancellation Reason');
+    buffer.writeln(selectedColumns.map((c) => '"$c"').join(','));
     
     // Rows
     for (final o in orders) {
-      final reason = (o.cancellationReason ?? '').replaceAll(',', ';');
-      buffer.writeln('${o.orderId},"${o.customerName ?? ''}",${fmt.format(o.orderDate)},${fmt.format(o.deliveryDate)},${o.paymentMethod},${o.subtotal.toStringAsFixed(2)},${o.deliveryFee.toStringAsFixed(2)},${o.totalAmount.toStringAsFixed(2)},${o.orderStatus},${o.paymentStatus},"$reason"');
+      final rowFields = selectedColumns.map((col) {
+        final val = _getCellValue(o, col, fmt);
+        return '"${val.replaceAll('"', '""')}"';
+      });
+      buffer.writeln(rowFields.join(','));
     }
     
     final blob = html.Blob([buffer.toString()], 'text/csv');
     final url = html.Url.createObjectUrlFromBlob(blob);
-    final fileName = '${fileNamePrefix}_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv';
+    final fileName = '${fileNamePrefix}_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.csv';
     
     html.AnchorElement(href: url)
       ..setAttribute('download', fileName)
@@ -32,13 +75,26 @@ class ExportUtils {
     html.Url.revokeObjectUrl(url);
   }
 
-  static Future<void> exportOrdersPdf(List<OrderModel> orders, {String title = 'Orders Report', String fileNamePrefix = 'orders'}) async {
+  static Future<void> exportOrdersPdf(List<OrderModel> orders, List<String> selectedColumns, {String title = 'Orders Report', String fileNamePrefix = 'orders'}) async {
     final pdf = pw.Document();
-    final fmt = DateFormat('yyyy-MM-dd');
+    final fmt = DateFormat('yyyy-MM-dd HH:mm');
     
+    // Determine cell alignments based on column name
+    Map<int, pw.Alignment> alignments = {};
+    for (int i = 0; i < selectedColumns.length; i++) {
+      final c = selectedColumns[i];
+      if (['Subtotal', 'Delivery Fee', 'Total Amount'].contains(c)) {
+        alignments[i] = pw.Alignment.centerRight;
+      } else if (['Order Date', 'Delivery Date', 'Payment Status', 'Order Status'].contains(c)) {
+        alignments[i] = pw.Alignment.center;
+      } else {
+        alignments[i] = pw.Alignment.centerLeft;
+      }
+    }
+
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
+        pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(32),
         build: (pw.Context context) {
           return [
@@ -56,22 +112,10 @@ class ExportUtils {
               headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
               headerHeight: 25,
               cellHeight: 25,
-              cellAlignments: {
-                0: pw.Alignment.centerLeft,
-                1: pw.Alignment.centerLeft,
-                2: pw.Alignment.center,
-                3: pw.Alignment.centerRight,
-                4: pw.Alignment.center,
-              },
-              headers: ['Order ID', 'Customer', 'Date', 'Total (RM)', 'Status'],
+              cellAlignments: alignments,
+              headers: selectedColumns,
               data: orders.map((o) {
-                return [
-                  o.orderId,
-                  o.customerName ?? 'Unknown',
-                  fmt.format(o.orderDate),
-                  o.totalAmount.toStringAsFixed(2),
-                  o.orderStatus,
-                ];
+                return selectedColumns.map((col) => _getCellValue(o, col, fmt)).toList();
               }).toList(),
             ),
           ];
@@ -80,10 +124,9 @@ class ExportUtils {
     );
 
     final bytes = await pdf.save();
-    final fileName = '${fileNamePrefix}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
+    final fileName = '${fileNamePrefix}_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.pdf';
     
     if (kIsWeb) {
-      // Direct download on web
       final blob = html.Blob([bytes], 'application/pdf');
       final url = html.Url.createObjectUrlFromBlob(blob);
       html.AnchorElement(href: url)
@@ -91,7 +134,6 @@ class ExportUtils {
         ..click();
       html.Url.revokeObjectUrl(url);
     } else {
-      // Use printing package for mobile/desktop to share/print
       await Printing.sharePdf(bytes: bytes, filename: fileName);
     }
   }

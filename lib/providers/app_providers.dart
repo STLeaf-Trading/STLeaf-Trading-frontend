@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../data/models/product_model.dart';
 import '../data/models/customer_model.dart';
 import '../data/models/order_model.dart';
+import '../data/models/instalment_model.dart';
 import 'dart:typed_data';
 import '../data/models/inventory_model.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -12,7 +13,8 @@ import '../core/constants/app_constants.dart';
 
 // PRODUCT PROVIDER
 class ProductProvider extends ChangeNotifier {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+  ProductProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
   List<ProductModel> _products = [];
   bool _isLoading = false;
   String _searchQuery = '';
@@ -107,19 +109,20 @@ class ProductProvider extends ChangeNotifier {
 // CART PROVIDER
 class CartItem {
   final ProductModel product;
-  int quantity;
+  double quantity;
   final String? remarks;
   CartItem({required this.product, required this.quantity, this.remarks});
   double get subtotal => product.effectivePrice * quantity;
 }
 
 class CartProvider extends ChangeNotifier {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+  CartProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
   final List<CartItem> _items = [];
   String? _uid;
 
   List<CartItem> get items => _items;
-  int get itemCount => _items.fold(0, (sum, i) => sum + i.quantity);
+  int get itemCount => _items.length;
   double get subtotal => _items.fold(0, (sum, i) => sum + i.subtotal);
   double get total => subtotal;
   bool get isEmpty => _items.isEmpty;
@@ -135,7 +138,7 @@ class CartProvider extends ChangeNotifier {
       _items.clear();
       for (final raw in rawItems) {
         final productId = raw['productId'] as String? ?? '';
-        final quantity = (raw['quantity'] as num?)?.toInt() ?? 1;
+        final quantity = (raw['quantity'] as num?)?.toDouble() ?? 1.0;
         final remarks = raw['remarks'] as String?;
         // Match against loaded products
         final product = allProducts.firstWhere(
@@ -191,23 +194,36 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  void addToCart(ProductModel product, {int quantity = 1, String? remarks}) {
+  void addToCart(ProductModel product, {double quantity = 1.0, String? remarks}) {
+    if (!product.isActive || product.isOutOfStock) {
+      throw Exception('This product is currently unavailable.');
+    }
+
     final idx = _items.indexWhere((i) => i.product.id == product.id && i.remarks == remarks);
     if (idx != -1) {
+      if (_items[idx].quantity + quantity > product.stockQuantity) {
+        throw Exception('Cannot add more. Max stock available: ${product.stockQuantity}');
+      }
       _items[idx].quantity += quantity;
     } else {
+      if (quantity > product.stockQuantity) {
+        throw Exception('Cannot add more. Max stock available: ${product.stockQuantity}');
+      }
       _items.add(CartItem(product: product, quantity: quantity, remarks: remarks));
     }
     notifyListeners();
     _saveCart();
   }
 
-  void updateQuantity(String productId, int qty) {
+  void updateQuantity(String productId, double qty) {
     final idx = _items.indexWhere((i) => i.product.id == productId);
     if (idx != -1) {
       if (qty <= 0) {
         _items.removeAt(idx);
       } else {
+        if (qty > _items[idx].product.stockQuantity) {
+          throw Exception('Max stock available: ${_items[idx].product.stockQuantity}');
+        }
         _items[idx].quantity = qty;
       }
       notifyListeners();
@@ -244,21 +260,36 @@ class CartProvider extends ChangeNotifier {
 
 // ORDER PROVIDER
 class OrderProvider extends ChangeNotifier {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+  OrderProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
   List<OrderModel> _orders = [];
   bool _isLoading = false;
   String _statusFilter = 'All';
   StreamSubscription? _sub;
 
-  List<OrderModel> get orders => _filtered;
-  List<OrderModel> get allOrders => _orders;
   bool get isLoading => _isLoading;
   String get statusFilter => _statusFilter;
 
-  List<OrderModel> get _filtered {
-    if (_statusFilter == 'All') return _orders;
-    return _orders.where((o) => o.orderStatus == _statusFilter).toList();
+  List<OrderModel> get _visibleOrders {
+    final now = DateTime.now();
+    return _orders.where((o) {
+      if (o.orderStatus == 'Delivered') {
+        // Hide if more than 1 day has passed since scheduled delivery date
+        final endOfDeliveryDay = DateTime(o.deliveryDate.year, o.deliveryDate.month, o.deliveryDate.day, 23, 59, 59);
+        if (now.isAfter(endOfDeliveryDay.add(const Duration(days: 1)))) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
   }
+
+  List<OrderModel> get orders {
+    if (_statusFilter == 'All') return _visibleOrders;
+    return _visibleOrders.where((o) => o.orderStatus == _statusFilter).toList();
+  }
+  
+  List<OrderModel> get allOrders => _visibleOrders;
 
   Future<void> loadOrders({String? customerId}) async {
     _isLoading = true;
@@ -283,9 +314,35 @@ class OrderProvider extends ChangeNotifier {
   }
 
   Future<OrderModel?> placeOrder(OrderModel order) async {
+    // 1. Validate stock availability before proceeding
+    for (final item in order.items) {
+      final pDoc = await _db.collection('products').doc(item.productId).get();
+      if (!pDoc.exists) throw Exception('Product ${item.productName} no longer exists.');
+      final pData = pDoc.data()!;
+      final currentStock = (pData['stockQuantity'] ?? 0) as int;
+      final status = pData['status'] as String? ?? 'Active';
+      if (status == 'Inactive') {
+        throw Exception('Product ${item.productName} is currently unavailable.');
+      }
+      if (currentStock < item.quantity.toInt()) {
+        throw Exception('Insufficient stock for ${item.productName}. Only $currentStock available.');
+      }
+    }
+
     final Map<String, dynamic> data = order.toJson();
     data['createdAt'] = FieldValue.serverTimestamp();
     final docRef = await _db.collection('orders').add(data);
+    
+    // 2. Decrement stock
+    final batch = _db.batch();
+    for (final item in order.items) {
+      final pRef = _db.collection('products').doc(item.productId);
+      batch.update(pRef, {
+        'stockQuantity': FieldValue.increment(-item.quantity.toInt()),
+      });
+    }
+    await batch.commit();
+
     return OrderModel(
       id: docRef.id,
       orderId: order.orderId,
@@ -307,6 +364,10 @@ class OrderProvider extends ChangeNotifier {
     await _db.collection('orders').doc(orderId).update({'orderStatus': status});
   }
 
+  Future<void> updatePaymentStatus(String orderId, String status) async {
+    await _db.collection('orders').doc(orderId).update({'paymentStatus': status});
+  }
+
   Future<void> cancelOrder(String orderId, String reason) async {
     await _db.collection('orders').doc(orderId).update({
       'orderStatus': 'Cancelled',
@@ -324,7 +385,8 @@ class OrderProvider extends ChangeNotifier {
 
 // CUSTOMER PROVIDER
 class CustomerProvider extends ChangeNotifier {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+  CustomerProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
   List<CustomerModel> _customers = [];
   bool _isLoading = false;
   String _searchQuery = '';
@@ -375,6 +437,25 @@ class CustomerProvider extends ChangeNotifier {
       }),
     ]);
   }
+
+  Future<void> addCustomer(CustomerModel customer) async {
+    final docRef = _db.collection('customers').doc();
+    await docRef.set({
+      'customerCode': customer.customerCode,
+      'companyName': customer.companyName,
+      'contactPerson': customer.contactPerson,
+      'phoneNumber': customer.phoneNumber,
+      'email': customer.email,
+      'businessRegistrationNo': customer.businessRegistrationNo,
+      'address': customer.address,
+      'creditLimit': customer.creditLimit,
+      'creditTerm': customer.creditTerm,
+      'status': customer.status,
+      'outstandingBalance': customer.outstandingBalance,
+      'creditScore': customer.creditScore,
+      'creditHistory': customer.creditHistory,
+    });
+  }
   
   @override
   void dispose() {
@@ -385,7 +466,8 @@ class CustomerProvider extends ChangeNotifier {
 
 // INVENTORY PROVIDER
 class InventoryProvider extends ChangeNotifier {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+  InventoryProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
   List<InventoryModel> _inventory = [];
   bool _isLoading = false;
   StreamSubscription? _sub;
@@ -432,7 +514,8 @@ class InventoryProvider extends ChangeNotifier {
 
 // DELIVERY PROVIDER
 class DeliveryProvider extends ChangeNotifier {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+  DeliveryProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
   List<OrderModel> _deliveries = [];
   bool _isLoading = false;
   StreamSubscription? _sub;
@@ -473,7 +556,8 @@ class DeliveryProvider extends ChangeNotifier {
 
 // DASHBOARD PROVIDER
 class DashboardProvider extends ChangeNotifier {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+  DashboardProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
   DashboardStats? _stats;
   bool _isLoading = false;
 
@@ -510,6 +594,12 @@ class DashboardProvider extends ChangeNotifier {
           .get();
       int pendingOrdersCount = pendingOrdersSnap.docs.length;
 
+      // Get pending deliveries
+      final pendingDeliveriesSnap = await _db.collection('orders')
+          .where('orderStatus', isEqualTo: 'Out For Delivery')
+          .get();
+      int pendingDeliveriesCount = pendingDeliveriesSnap.docs.length;
+
       // Low stock products - compare stockQuantity < lowStockLevel per product
       final allProductsSnap = await _db.collection('products').get();
       int lowStockCount = allProductsSnap.docs.where((doc) {
@@ -519,12 +609,14 @@ class DashboardProvider extends ChangeNotifier {
         return stock > 0 && stock <= lowLevel;
       }).length;
 
-      // Outstanding debts
-      final customersSnap = await _db.collection('customers').get();
+      // Outstanding debts (from instalments)
+      final instalmentsSnap = await _db.collection('instalments')
+          .where('status', isEqualTo: 'Active')
+          .get();
       double outstandingDebts = 0;
-      for (var doc in customersSnap.docs) {
-        final data = doc.data() as Map<String, dynamic>? ?? {};
-        outstandingDebts += (data['outstandingBalance'] ?? 0).toDouble();
+      for (var doc in instalmentsSnap.docs) {
+        final plan = InstalmentPlanModel.fromFirestore(doc);
+        outstandingDebts += plan.totalRemaining;
       }
 
       // 7-day revenue trend (cutoff each day is 23:59:59)
@@ -596,7 +688,7 @@ class DashboardProvider extends ChangeNotifier {
         todayOrders: todayOrdersCount,
         todayRevenue: todayRevenue,
         pendingOrders: pendingOrdersCount,
-        pendingDeliveries: pendingOrdersCount,
+        pendingDeliveries: pendingDeliveriesCount,
         lowStockProducts: lowStockCount,
         outstandingDebts: outstandingDebts,
         revenueData: revenueData,
@@ -624,4 +716,197 @@ class _CustomerStat {
   final int orders;
   final double totalSpent;
   _CustomerStat({required this.name, required this.orders, required this.totalSpent});
+}
+
+// INSTALMENT PROVIDER
+class InstalmentProvider extends ChangeNotifier {
+  final FirebaseFirestore _db;
+  InstalmentProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  List<InstalmentPlanModel> _plans = [];
+  bool _isLoading = false;
+  StreamSubscription? _sub;
+
+  List<InstalmentPlanModel> get plans => _plans;
+  bool get isLoading => _isLoading;
+
+  Future<void> loadCustomerPlans(String customerId) async {
+    _isLoading = true;
+    notifyListeners();
+    _sub?.cancel();
+    _sub = _db.collection('instalments')
+        .where('customerId', isEqualTo: customerId)
+        .snapshots()
+        .listen((snap) {
+      _plans = snap.docs.map((d) => InstalmentPlanModel.fromFirestore(d)).toList();
+      _isLoading = false;
+      notifyListeners();
+    });
+  }
+
+  Future<void> loadAllPlans() async {
+    _isLoading = true;
+    notifyListeners();
+    _sub?.cancel();
+    _sub = _db.collection('instalments').snapshots().listen((snap) {
+      _plans = snap.docs.map((d) => InstalmentPlanModel.fromFirestore(d)).toList();
+      _isLoading = false;
+      notifyListeners();
+    });
+  }
+
+  InstalmentPlanModel? planForOrder(String orderId) {
+    try {
+      return _plans.firstWhere((p) => p.orderId == orderId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String> createPlan(InstalmentPlanModel plan) async {
+    final data = plan.toJson();
+    data['createdAt'] = FieldValue.serverTimestamp();
+    final ref = await _db.collection('instalments').add(data);
+    return ref.id;
+  }
+  Future<void> submitPhasePayment({
+    required String planId,
+    required int entryIndex,
+    required String paymentMethod,
+    String? paymentProofUrl,
+  }) async {
+    final doc = await _db.collection('instalments').doc(planId).get();
+    final plan = InstalmentPlanModel.fromFirestore(doc);
+    final entries = List<InstalmentEntry>.from(plan.entries);
+    final entry = entries[entryIndex];
+
+    entries[entryIndex] = entry.copyWith(
+      status: 'Under Review',
+      paymentMethod: paymentMethod,
+      paymentProofUrl: paymentProofUrl,
+    );
+
+    await _db.collection('instalments').doc(planId).update({
+      'entries': entries.map((e) => e.toJson()).toList(),
+    });
+  }
+
+  Future<void> rejectPhasePayment(String planId, int entryIndex) async {
+    final doc = await _db.collection('instalments').doc(planId).get();
+    final plan = InstalmentPlanModel.fromFirestore(doc);
+    final entries = List<InstalmentEntry>.from(plan.entries);
+    final entry = entries[entryIndex];
+
+    entries[entryIndex] = entry.copyWith(
+      status: 'Pending',
+      paymentMethod: null,
+      paymentProofUrl: null,
+    );
+
+    await _db.collection('instalments').doc(planId).update({
+      'entries': entries.map((e) => e.toJson()).toList(),
+    });
+  }
+
+  /// Admin: update a single period's amount (total must not exceed original debt)
+  Future<void> updateEntryAmount(String planId, int entryIndex, double newAmount) async {
+    final doc = await _db.collection('instalments').doc(planId).get();
+    final plan = InstalmentPlanModel.fromFirestore(doc);
+    final entries = List<InstalmentEntry>.from(plan.entries);
+    final entry = entries[entryIndex];
+    if (entry.isPaid) return;
+
+    double otherTotal = 0;
+    for (int i = 0; i < entries.length; i++) {
+      if (i != entryIndex) otherTotal += entries[i].amountDue;
+    }
+    final maxAllowed = plan.totalAmount - otherTotal;
+    if (newAmount <= 0 || newAmount > maxAllowed) return;
+
+    entries[entryIndex] = entry.copyWith(amountDue: newAmount);
+    await _db.collection('instalments').doc(planId).update({
+      'entries': entries.map((e) => e.toJson()).toList(),
+    });
+  }
+
+  /// Admin: mark a period paid/late and adjust credit score
+  Future<void> markPeriodPaid({
+    required String planId,
+    required String customerId,
+    required int entryIndex,
+    required bool isLate,
+    String? adminNote,
+  }) async {
+    final doc = await _db.collection('instalments').doc(planId).get();
+    final plan = InstalmentPlanModel.fromFirestore(doc);
+    final entries = List<InstalmentEntry>.from(plan.entries);
+    final entry = entries[entryIndex];
+    if (entry.isPaid || entry.isLate) return;
+
+    entries[entryIndex] = entry.copyWith(
+      status: isLate ? 'Late' : 'Paid',
+      paidAt: DateTime.now(),
+      markedByAdmin: true,
+      adminNote: adminNote,
+    );
+
+    final allDone = entries.every((e) => e.isPaid || e.isLate);
+    await _db.collection('instalments').doc(planId).update({
+      'entries': entries.map((e) => e.toJson()).toList(),
+      'status': allDone ? 'Completed' : 'Active',
+    });
+
+    if (allDone) {
+      await _db.collection('orders').doc(plan.orderId).update({
+        'paymentStatus': 'Paid',
+      });
+    }
+
+    await _updateCreditScore(
+      customerId: customerId,
+      isLate: isLate,
+      adminNote: adminNote,
+      periodNumber: entry.periodNumber,
+      orderId: plan.orderId,
+    );
+  }
+
+  Future<void> _updateCreditScore({
+    required String customerId,
+    required bool isLate,
+    String? adminNote,
+    required int periodNumber,
+    required String orderId,
+  }) async {
+    final custDoc = await _db.collection('customers').doc(customerId).get();
+    if (!custDoc.exists) return;
+    final data = custDoc.data() as Map<String, dynamic>? ?? {};
+    double current = (data['creditScore'] ?? 100.0).toDouble();
+    double delta = isLate ? -10.0 : 5.0;
+    double newScore = (current + delta).clamp(0.0, 100.0);
+
+    final entry = {
+      'date': DateTime.now().toIso8601String(),
+      'delta': delta,
+      'scoreBefore': current,
+      'scoreAfter': newScore,
+      'reason': isLate
+          ? 'Late payment (Period $periodNumber, Order $orderId)'
+          : 'On-time payment (Period $periodNumber, Order $orderId)',
+      if (adminNote != null && adminNote.isNotEmpty) 'note': adminNote,
+    };
+
+    final List history = List.from(data['creditHistory'] ?? []);
+    history.add(entry);
+
+    await _db.collection('customers').doc(customerId).update({
+      'creditScore': newScore,
+      'creditHistory': history,
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
 }

@@ -4,8 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth;
+  final FirebaseFirestore _db;
+  AuthProvider({FirebaseAuth? auth, FirebaseFirestore? db}) : _auth = auth ?? FirebaseAuth.instance, _db = db ?? FirebaseFirestore.instance;
 
   UserModel? _currentUser;
   bool _isLoading = false;
@@ -96,6 +97,8 @@ class AuthProvider extends ChangeNotifier {
           'creditTerm': 'COD',
           'status': 'Active',
           'outstandingBalance': 0,
+          'creditScore': 100.0,
+          'creditHistory': [],
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
@@ -127,11 +130,8 @@ class AuthProvider extends ChangeNotifier {
       final credential = EmailAuthProvider.credential(email: user.email!, password: password);
       await user.reauthenticateWithCredential(credential);
       final uid = user.uid;
-      // Delete Firestore docs (orders are NOT deleted — preserved for records)
-      await Future.wait([
-        _db.collection('customers').doc(uid).delete(),
-        _db.collection('users').doc(uid).delete(),
-      ]);
+      // Delete Firestore docs (customers and orders are NOT deleted — preserved for records)
+      await _db.collection('users').doc(uid).delete();
       // Delete Firebase Auth account
       await user.delete();
       _currentUser = null;

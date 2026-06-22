@@ -253,9 +253,13 @@ class _ProductCardState extends State<_ProductCard> {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        StatusBadge(status: p.isOutOfStock ? 'Out of Stock' : p.isLowStock ? 'Low Stock' : 'In Stock'),
+                        StatusBadge(status: !p.isActive ? 'Unavailable' : p.isOutOfStock ? 'Out of Stock' : p.isLowStock ? 'Low Stock' : 'In Stock'),
                       ],
                     ),
+                    if (!p.isActive && p.disabledReason != null) ...[
+                      const SizedBox(height: 4),
+                      Text('Reason: ${p.disabledReason}', style: const TextStyle(fontSize: 11, color: AppColors.danger)),
+                    ],
                     const SizedBox(height: 10),
                     Text('Stock: ${p.stockQuantity} units',
                       style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
@@ -271,6 +275,17 @@ class _ProductCardState extends State<_ProductCard> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             child: const Text('Edit', style: TextStyle(fontSize: 12)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () => _toggleStatus(context, p),
+                          icon: Icon(p.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded, size: 18),
+                          tooltip: p.isActive ? 'Make Unavailable' : 'Make Active',
+                          style: IconButton.styleFrom(
+                            foregroundColor: p.isActive ? AppColors.warning : AppColors.success,
+                            backgroundColor: p.isActive ? AppColors.warningLight : AppColors.successLight,
+                            padding: const EdgeInsets.all(8),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -314,6 +329,62 @@ class _ProductCardState extends State<_ProductCard> {
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleStatus(BuildContext context, ProductModel p) {
+    if (!p.isActive) {
+      // Make active
+      final updated = ProductModel(
+        id: p.id, itemCode: p.itemCode, name: p.name, category: p.category, description: p.description, precaution: p.precaution, freshnessLevel: p.freshnessLevel, packType: p.packType, weightKg: p.weightKg, price: p.price, promotionPrice: p.promotionPrice, stockQuantity: p.stockQuantity, lowStockLevel: p.lowStockLevel, imageUrl: p.imageUrl,
+        status: 'Active',
+        disabledReason: null,
+      );
+      context.read<ProductProvider>().updateProduct(updated);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product marked as Active')));
+      return;
+    }
+
+    final reasonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Make Product Unavailable'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Enter a reason for disabling this product. This will be shown to customers.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonCtrl,
+              decoration: InputDecoration(
+                hintText: 'e.g. Recalled, Season Ended',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final reason = reasonCtrl.text.trim();
+              final updated = ProductModel(
+                id: p.id, itemCode: p.itemCode, name: p.name, category: p.category, description: p.description, precaution: p.precaution, freshnessLevel: p.freshnessLevel, packType: p.packType, weightKg: p.weightKg, price: p.price, promotionPrice: p.promotionPrice, stockQuantity: p.stockQuantity, lowStockLevel: p.lowStockLevel, imageUrl: p.imageUrl,
+                status: 'Inactive',
+                disabledReason: reason.isEmpty ? 'Unavailable' : reason,
+              );
+              context.read<ProductProvider>().updateProduct(updated);
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product marked as Unavailable')));
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning),
+            child: const Text('Disable'),
           ),
         ],
       ),

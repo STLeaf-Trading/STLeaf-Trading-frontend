@@ -38,7 +38,7 @@ class ReportsScreen extends StatelessWidget {
                   const Text('Business analytics overview', style: TextStyle(color: AppColors.textSecondary)),
                 ]),
                 AppButton(
-                  label: 'Export PDF',
+                  label: 'Export Report',
                   icon: Icons.download_rounded,
                   onPressed: () {
                     showDialog(
@@ -80,6 +80,18 @@ class ReportsScreen extends StatelessWidget {
                           drawVerticalLine: false,
                           horizontalInterval: 500,
                           getDrawingHorizontalLine: (_) => const FlLine(color: AppColors.divider, strokeWidth: 1),
+                        ),
+                        barTouchData: BarTouchData(
+                          touchTooltipData: BarTouchTooltipData(
+                            getTooltipColor: (_) => AppColors.white,
+                            tooltipBorder: const BorderSide(color: AppColors.textPrimary),
+                            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                              return BarTooltipItem(
+                                rod.toY.toStringAsFixed(0),
+                                const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                              );
+                            },
+                          ),
                         ),
                         borderData: FlBorderData(show: false),
                         titlesData: FlTitlesData(
