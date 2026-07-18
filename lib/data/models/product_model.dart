@@ -1,5 +1,32 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class ProductSizeModel {
+  final String unit; // 'Gram', 'Kg', 'Pack', 'Box'
+  final double price;
+  final double? promotionPrice;
+
+  const ProductSizeModel({
+    required this.unit,
+    required this.price,
+    this.promotionPrice,
+  });
+
+  double get effectivePrice => promotionPrice ?? price;
+  bool get hasPromotion => promotionPrice != null && promotionPrice! < price;
+
+  factory ProductSizeModel.fromMap(Map<String, dynamic> json) => ProductSizeModel(
+        unit: json['unit'] ?? '',
+        price: (json['price'] ?? 0).toDouble(),
+        promotionPrice: json['promotionPrice']?.toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'unit': unit,
+        'price': price,
+        if (promotionPrice != null) 'promotionPrice': promotionPrice,
+      };
+}
+
 class ProductModel {
   final String id;
   final String itemCode;
@@ -8,10 +35,7 @@ class ProductModel {
   final String description;
   final String precaution;
   final int freshnessLevel;
-  final String packType;
-  final double weightKg;
-  final double price;
-  final double? promotionPrice;
+  final List<ProductSizeModel> sizes;
   final int stockQuantity;
   final int lowStockLevel;
   final String? imageUrl;
@@ -26,10 +50,7 @@ class ProductModel {
     required this.description,
     required this.precaution,
     required this.freshnessLevel,
-    required this.packType,
-    required this.weightKg,
-    required this.price,
-    this.promotionPrice,
+    required this.sizes,
     required this.stockQuantity,
     this.lowStockLevel = 10,
     this.imageUrl,
@@ -37,14 +58,38 @@ class ProductModel {
     this.disabledReason,
   });
 
-  double get effectivePrice => promotionPrice ?? price;
-  bool get hasPromotion => promotionPrice != null && promotionPrice! < price;
+  // Helper to get the default size or first size available
+  ProductSizeModel? get defaultSize => sizes.isNotEmpty ? sizes.first : null;
+
+  // These getters provide fallback behavior for legacy code or when no specific size is selected
+  double get effectivePrice => defaultSize?.effectivePrice ?? 0.0;
+  bool get hasPromotion => defaultSize?.hasPromotion ?? false;
+  String get packType => defaultSize?.unit ?? '';
+  
   bool get isLowStock => stockQuantity <= lowStockLevel;
   bool get isOutOfStock => stockQuantity <= 0;
   bool get isActive => status != 'Inactive';
 
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
     final json = doc.data() as Map<String, dynamic>? ?? {};
+    
+    // Migration logic for old data format
+    List<ProductSizeModel> parsedSizes = [];
+    if (json['sizes'] != null) {
+      parsedSizes = (json['sizes'] as List<dynamic>)
+          .map((e) => ProductSizeModel.fromMap(e as Map<String, dynamic>))
+          .toList();
+    } else if (json['price'] != null) {
+      // Legacy fallback
+      parsedSizes = [
+        ProductSizeModel(
+          unit: json['packType'] ?? 'Unknown',
+          price: (json['price'] ?? 0).toDouble(),
+          promotionPrice: json['promotionPrice']?.toDouble(),
+        )
+      ];
+    }
+
     return ProductModel(
       id: doc.id,
       itemCode: json['itemCode'] ?? '',
@@ -54,11 +99,8 @@ class ProductModel {
       precaution: json['precaution'] ?? '',
       freshnessLevel: (json['freshnessLevel'] is num) 
           ? (json['freshnessLevel'] as num).toInt() 
-          : 10, // Fallback for old string records
-      packType: json['packType'] ?? '',
-      weightKg: (json['weightKg'] ?? 0).toDouble(),
-      price: (json['price'] ?? 0).toDouble(),
-      promotionPrice: json['promotionPrice']?.toDouble(),
+          : 10,
+      sizes: parsedSizes,
       stockQuantity: json['stockQuantity'] ?? 0,
       lowStockLevel: json['lowStockLevel'] ?? 10,
       imageUrl: json['imageUrl'],
@@ -74,10 +116,7 @@ class ProductModel {
         'description': description,
         'precaution': precaution,
         'freshnessLevel': freshnessLevel,
-        'packType': packType,
-        'weightKg': weightKg,
-        'price': price,
-        'promotionPrice': promotionPrice,
+        'sizes': sizes.map((s) => s.toJson()).toList(),
         'stockQuantity': stockQuantity,
         'lowStockLevel': lowStockLevel,
         'imageUrl': imageUrl,

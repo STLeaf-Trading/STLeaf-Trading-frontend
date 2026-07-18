@@ -119,8 +119,9 @@ class _CustomerCardState extends State<_CustomerCard> {
     final c = widget.customer;
     final creditUsedPct = c.creditLimit == 0 ? 0.0 : (c.outstandingBalance / c.creditLimit).clamp(0.0, 1.0);
     Color creditColor = AppColors.success;
-    if (creditUsedPct > 0.9) creditColor = AppColors.danger;
-    else if (creditUsedPct > 0.7) creditColor = AppColors.warning;
+    if (creditUsedPct > 0.9) {
+      creditColor = AppColors.danger;
+    } else if (creditUsedPct > 0.7) creditColor = AppColors.warning;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -167,7 +168,7 @@ class _CustomerCardState extends State<_CustomerCard> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Outstanding Debt', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  const Text('Outstanding Debt', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   Text(widget.formatter.format(c.outstandingBalance),
                     style: TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w800,
@@ -211,7 +212,7 @@ class CustomerDetailScreen extends StatelessWidget {
         ? customers.firstWhere((c) => c.id == customerId, orElse: () => customers.first)
         : null;
 
-    if (c == null) return AdminLayout(currentRoute: '/admin/customers', child: const LoadingWidget());
+    if (c == null) return const AdminLayout(currentRoute: '/admin/customers', child: LoadingWidget());
 
     return AdminLayout(
       currentRoute: '/admin/customers',

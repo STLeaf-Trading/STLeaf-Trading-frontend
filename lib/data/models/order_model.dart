@@ -56,6 +56,7 @@ class OrderModel {
   final DateTime orderDate;
   final DateTime deliveryDate;
   final double subtotal;
+  final double? finalSubtotal;
   final double deliveryFee;
   final double totalAmount;
   final String paymentMethod;
@@ -66,6 +67,10 @@ class OrderModel {
   final String? cancellationReason;
   final String? customerComment;
   final String? instalmentPlanId;
+  final String? paymentProofUrl;
+  final String refundStatus;
+  final String deliveryFeeStatus;
+  final String? deliveryFeeProofUrl;
 
   const OrderModel({
     required this.id,
@@ -75,6 +80,7 @@ class OrderModel {
     required this.orderDate,
     required this.deliveryDate,
     required this.subtotal,
+    this.finalSubtotal,
     required this.deliveryFee,
     required this.totalAmount,
     required this.paymentMethod,
@@ -85,6 +91,10 @@ class OrderModel {
     this.cancellationReason,
     this.customerComment,
     this.instalmentPlanId,
+    this.paymentProofUrl,
+    this.refundStatus = 'None',
+    this.deliveryFeeStatus = 'None',
+    this.deliveryFeeProofUrl,
   });
 
   bool get isPending => orderStatus == 'Pending';
@@ -109,6 +119,7 @@ class OrderModel {
       orderDate: parseDate(json['orderDate']),
       deliveryDate: parseDate(json['deliveryDate']),
       subtotal: (json['subtotal'] ?? 0).toDouble(),
+      finalSubtotal: json['finalSubtotal']?.toDouble(),
       deliveryFee: (json['deliveryFee'] ?? 0).toDouble(),
       totalAmount: (json['totalAmount'] ?? 0).toDouble(),
       paymentMethod: json['paymentMethod'] ?? 'Cash',
@@ -118,6 +129,10 @@ class OrderModel {
       cancellationReason: json['cancellationReason'],
       customerComment: json['customerComment'],
       instalmentPlanId: json['instalmentPlanId'],
+      paymentProofUrl: json['paymentProofUrl'],
+      refundStatus: json['refundStatus'] ?? 'None',
+      deliveryFeeStatus: json['deliveryFeeStatus'] ?? 'None',
+      deliveryFeeProofUrl: json['deliveryFeeProofUrl'],
       items: (json['items'] as List<dynamic>? ?? [])
           .map((e) => OrderItemModel.fromMap(e as Map<String, dynamic>))
           .toList(),
@@ -131,6 +146,7 @@ class OrderModel {
         'orderDate': orderDate.toIso8601String(),
         'deliveryDate': deliveryDate.toIso8601String(),
         'subtotal': subtotal,
+        if (finalSubtotal != null) 'finalSubtotal': finalSubtotal,
         'deliveryFee': deliveryFee,
         'totalAmount': totalAmount,
         'paymentMethod': paymentMethod,
@@ -141,5 +157,9 @@ class OrderModel {
         if (cancellationReason != null) 'cancellationReason': cancellationReason,
         if (customerComment != null && customerComment!.isNotEmpty) 'customerComment': customerComment,
         if (instalmentPlanId != null) 'instalmentPlanId': instalmentPlanId,
+        if (paymentProofUrl != null) 'paymentProofUrl': paymentProofUrl,
+        'refundStatus': refundStatus,
+        'deliveryFeeStatus': deliveryFeeStatus,
+        if (deliveryFeeProofUrl != null) 'deliveryFeeProofUrl': deliveryFeeProofUrl,
       };
 }

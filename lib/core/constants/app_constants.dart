@@ -33,6 +33,16 @@ class AppConstants {
     'Mushrooms',
   ];
 
+  // Unit types for product sizes
+  static const List<String> productUnitTypes = [
+    'Kg',
+    'Pack',
+    'Box',
+    'PC',
+    'Bag',
+    'Basket',
+  ];
+
   // Freshness Levels
   static const List<String> freshnessLevels = [
     'Fresh',
@@ -61,11 +71,19 @@ class AppConstants {
     'Failed',
   ];
 
+  // Minimum Order for Delivery
+  static const double minOrderForDelivery = 100.0;
+
+  // Maybank Transfer Details
+  static const String maybankAccountNumber = '554062335564';
+  static const String maybankAccountName = 'St Leaf Trading';
+  static const String maybankBankName = 'Maybank';
+
   static const List<String> paymentMethods = [
-    'Cash / COD',
-    'FPX (Online Banking)',
-    'Touch \'n Go (TNG)',
-    'Instalment',
+    'Pay at Counter',
+    "Touch 'n Go (TNG)",
+    'Maybank Transfer',
+    // 'Instalment', // Hidden: feature temporarily disabled
   ];
 
   // Instalment period presets

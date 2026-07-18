@@ -20,7 +20,7 @@ class ReportsScreen extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.read<DashboardProvider>().loadStats();
       });
-      return AdminLayout(currentRoute: '/admin/reports', child: const LoadingWidget());
+      return const AdminLayout(currentRoute: '/admin/reports', child: LoadingWidget());
     }
 
     return AdminLayout(
@@ -66,9 +66,6 @@ class ReportsScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     StatCard(title: 'Total Orders', value: '${context.watch<OrderProvider>().allOrders.length}',
                       icon: Icons.receipt_long_rounded, color: AppColors.success, isGradient: true),
-                    const SizedBox(height: 16),
-                    StatCard(title: 'Outstanding Debt', value: formatter.format(stats.outstandingDebts),
-                      icon: Icons.account_balance_wallet_rounded, color: AppColors.danger, isGradient: true),
                   ],
                 );
               }
@@ -78,9 +75,6 @@ class ReportsScreen extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(child: StatCard(title: 'Total Orders', value: '${context.watch<OrderProvider>().allOrders.length}',
                   icon: Icons.receipt_long_rounded, color: AppColors.success, isGradient: true)),
-                const SizedBox(width: 16),
-                Expanded(child: StatCard(title: 'Outstanding Debt', value: formatter.format(stats.outstandingDebts),
-                  icon: Icons.account_balance_wallet_rounded, color: AppColors.danger, isGradient: true)),
               ]);
             }),
             const SizedBox(height: 28),
@@ -116,9 +110,9 @@ class ReportsScreen extends StatelessWidget {
                         ),
                         borderData: FlBorderData(show: false),
                         titlesData: FlTitlesData(
-                          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                           bottomTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,

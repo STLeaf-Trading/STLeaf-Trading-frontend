@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
@@ -426,6 +427,17 @@ class _FormPanel extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  if (kIsWeb) // Only show guest link on web — Android always requires login
+                    Center(
+                      child: TextButton(
+                        onPressed: () => context.go('/shop'),
+                        child: const Text(
+                          'Continue browsing as guest →',
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 32),
 
                 ],

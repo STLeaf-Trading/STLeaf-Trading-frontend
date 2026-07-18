@@ -22,6 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   bool _obscurePass = true;
+  bool _isWaitingForVerification = false;
 
   @override
   void dispose() {
@@ -42,24 +43,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       password: _passCtrl.text.trim(),
     );
     if (mounted && success) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Registration Successful', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
-          content: const Text('We have sent a verification link to your email address. Please verify your email before logging in.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                context.go('/login');
-              },
-              child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
-          ],
-        ),
-      );
+      setState(() {
+        _isWaitingForVerification = true;
+      });
+      // Start waiting for verification
+      final verified = await auth.waitForEmailVerification();
+      if (mounted && verified) {
+        if (auth.isAdmin) {
+          context.go('/admin/dashboard');
+        } else {
+          context.go('/shop');
+        }
+      }
     }
   }
 
@@ -110,10 +105,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
           Expanded(
             child: Container(
               color: AppColors.white,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
-                child: Form(
-                  key: _formKey,
+              child: _isWaitingForVerification
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 32),
+                            const Text('Verify Your Email', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'We have sent a verification link to your email.\nPlease click the link to verify your account.\n\nBe sure to check your Spam folder if you don\'t see it.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(height: 1.5, fontSize: 16),
+                            ),
+                            const SizedBox(height: 48),
+                            AppButton(
+                              label: 'Cancel Registration',
+                              onPressed: () {
+                                context.read<AuthProvider>().logout();
+                                context.go('/login');
+                              },
+                              isOutlined: true,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
+                      child: Form(
+                        key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -123,13 +147,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: TextStyle(color: AppColors.textSecondary)),
                       const SizedBox(height: 32),
 
-                      const Text('Business Information',
+                      const Text('Business / Personal Information',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
                       const SizedBox(height: 16),
 
-                      AppTextField(label: 'Company Name', hint: 'ABC Restaurant Sdn Bhd',
+                      AppTextField(label: 'Company Name / Individuals', hint: 'ABC Restaurant Sdn Bhd / John Doe',
                         controller: _companyCtrl,
-                        validator: (v) => (v == null || v.isEmpty) ? 'Company name is required' : null),
+                        validator: (v) => (v == null || v.isEmpty) ? 'This field is required' : null),
                       const SizedBox(height: 16),
 
                       Row(children: [

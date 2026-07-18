@@ -129,14 +129,15 @@ class _OrderCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (order.paymentMethod == 'Instalment')
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: const Color(0xFFE1BEE7), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('INSTALMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF6A1B9A))),
-                  )
-                else
-                  const SizedBox(),
+                // Hidden: Instalment feature temporarily disabled
+                // if (order.paymentMethod == 'Instalment')
+                //   Container(
+                //     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                //     decoration: BoxDecoration(color: const Color(0xFFE1BEE7), borderRadius: BorderRadius.circular(4)),
+                //     child: const Text('INSTALMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF6A1B9A))),
+                //   )
+                // else
+                const SizedBox(),
                 StatusBadge(status: order.orderStatus),
               ],
             ),
@@ -214,7 +215,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ? orders.firstWhere((o) => o.id == widget.orderId, orElse: () => orders.first)
         : null;
 
-    if (order == null || provider.isLoading) return CustomerLayout(currentRoute: '/shop/orders', child: const LoadingWidget());
+    if (order == null || provider.isLoading) return const CustomerLayout(currentRoute: '/shop/orders', child: LoadingWidget());
 
     final statusSteps = ['Pending', 'Confirmed', 'Packed', 'Out For Delivery', 'Delivered'];
     final currentIdx = order.orderStatus == 'Cancelled' ? -1 : statusSteps.indexOf(order.orderStatus);
@@ -338,13 +339,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ]),
                 )),
                 const Divider(height: 24),
-                _summaryRow('Subtotal', formatter.format(order.subtotal)),
-                _summaryRow('Delivery', formatter.format(order.deliveryFee)),
+                _summaryRow('Estimated Subtotal', formatter.format(order.subtotal)),
+                if (order.finalSubtotal != null) ...[
+                  _summaryRow('Actual Order Price', formatter.format(order.finalSubtotal!), isBold: true),
+                ],
+                if (order.deliveryAddress != 'Pickup')
+                  _summaryRow('Delivery Fee', order.finalSubtotal != null ? formatter.format(order.deliveryFee) : 'TBD by Admin', isBold: order.finalSubtotal != null),
                 const Divider(height: 16),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  const Text('Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                  Text(formatter.format(order.totalAmount),
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                  const Text('Final Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                  Text(order.finalSubtotal != null ? formatter.format(order.totalAmount) : 'Pending Confirmation',
+                    style: TextStyle(
+                      fontSize: order.finalSubtotal != null ? 20 : 14, 
+                      fontWeight: FontWeight.w800, 
+                      color: order.finalSubtotal != null ? AppColors.primary : AppColors.textMuted
+                    )),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
@@ -369,16 +378,84 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ]),
             ),
 
-            // Instalment schedule button
-            if (order.paymentMethod == 'Instalment') ...[
-              const SizedBox(height: 16),
-              AppButton(
-                label: 'View Instalment Schedule',
-                icon: Icons.calendar_month_rounded,
-                isOutlined: true,
-                width: double.infinity,
-                onPressed: () => context.push('/shop/orders/${order.id}/instalment'),
-              ),
+            // Request Refund
+            if (order.orderStatus == 'Cancelled' && order.refundStatus == 'None' && order.paymentStatus == 'Paid') ...[
+               const SizedBox(height: 16),
+               AppButton(
+                 label: 'Contact Admin for Refund',
+                 icon: Icons.support_agent_rounded,
+                 width: double.infinity,
+                 onPressed: () {
+                   context.read<OrderProvider>().updateOrderFields(order.id, {'refundStatus': 'Requested'});
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refund requested. Admin will contact you.')));
+                 },
+               ),
+            ],
+            if (order.orderStatus == 'Cancelled' && order.refundStatus == 'Requested') ...[
+               const SizedBox(height: 16),
+               Container(
+                 padding: const EdgeInsets.all(12),
+                 decoration: BoxDecoration(color: AppColors.infoLight, borderRadius: BorderRadius.circular(8)),
+                 child: const Row(children: [
+                   Icon(Icons.access_time_rounded, color: AppColors.info, size: 20),
+                   SizedBox(width: 8),
+                   Expanded(child: Text('Refund request is pending admin review.', style: TextStyle(color: AppColors.info, fontWeight: FontWeight.w600))),
+                 ]),
+               ),
+            ],
+            if (order.orderStatus == 'Cancelled' && order.refundStatus == 'Refunded') ...[
+               const SizedBox(height: 16),
+               Container(
+                 padding: const EdgeInsets.all(12),
+                 decoration: BoxDecoration(color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                 child: const Row(children: [
+                   Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                   SizedBox(width: 8),
+                   Expanded(child: Text('Order has been refunded.', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w600))),
+                 ]),
+               ),
+            ],
+
+            // Pay Now Block
+            if (order.paymentStatus == 'Awaiting Payment' && (order.paymentMethod == "Touch 'n Go (TNG)" || order.paymentMethod == 'Maybank Transfer')) ...[
+               const SizedBox(height: 16),
+               AppButton(
+                 label: 'Pay Now (RM ${order.totalAmount.toStringAsFixed(2)})',
+                 icon: Icons.payments_rounded,
+                 width: double.infinity,
+                 onPressed: () {
+                   context.push('/shop/payment-proof/${order.id}', extra: {
+                     'orderRef': order.orderId,
+                     'paymentMethod': order.paymentMethod,
+                     'totalAmount': order.totalAmount,
+                     'isDeliveryFee': false, // Now paying for whole order
+                   });
+                 },
+               ),
+            ],
+            if (order.paymentStatus == 'Under Review') ...[
+               const SizedBox(height: 16),
+               Container(
+                 padding: const EdgeInsets.all(12),
+                 decoration: BoxDecoration(color: AppColors.infoLight, borderRadius: BorderRadius.circular(8)),
+                 child: const Row(children: [
+                   Icon(Icons.access_time_rounded, color: AppColors.info, size: 20),
+                   SizedBox(width: 8),
+                   Expanded(child: Text('Your payment proof is under admin review.', style: TextStyle(color: AppColors.info, fontWeight: FontWeight.w600))),
+                 ]),
+               ),
+            ],
+            if (order.paymentStatus == 'Paid') ...[
+               const SizedBox(height: 16),
+               Container(
+                 padding: const EdgeInsets.all(12),
+                 decoration: BoxDecoration(color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                 child: const Row(children: [
+                   Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                   SizedBox(width: 8),
+                   Expanded(child: Text('Payment has been verified.', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w600))),
+                 ]),
+               ),
             ],
 
             // Cancel button
@@ -398,12 +475,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _summaryRow(String label, String value) {
+  Widget _summaryRow(String label, String value, {bool isBold = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(label, style: const TextStyle(color: AppColors.textSecondary)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text(label, style: TextStyle(color: isBold ? AppColors.textPrimary : AppColors.textSecondary, fontWeight: isBold ? FontWeight.w700 : FontWeight.normal)),
+        Text(value, style: TextStyle(fontWeight: isBold ? FontWeight.w800 : FontWeight.w600, color: isBold ? AppColors.primary : AppColors.textPrimary)),
       ]),
     );
   }

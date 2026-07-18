@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
-import 'package:stleaf_trading/providers/settings_provider.dart';
+
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/admin_layout.dart';
 
@@ -118,80 +119,13 @@ class _DashboardBody extends StatelessWidget {
               ],
             );
           }),
-          const SizedBox(height: 28),
-          _SettingsCard(),
         ],
       ),
     );
   }
 }
 
-class _SettingsCard extends StatefulWidget {
-  @override
-  State<_SettingsCard> createState() => _SettingsCardState();
-}
 
-class _SettingsCardState extends State<_SettingsCard> {
-  final _feeCtrl = TextEditingController();
-  bool _synced = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final fee = context.read<SettingsProvider>().deliveryFee;
-    // Only auto-sync when fee loads from Firestore and user hasn't typed
-    if (!_synced && fee != 15.00 || _feeCtrl.text.isEmpty) {
-      _feeCtrl.text = fee.toStringAsFixed(2);
-      _synced = true;
-    }
-  }
-
-  @override
-  void dispose() {
-    _feeCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Store Settings', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: AppTextField(
-                  label: 'Default Delivery Fee (RM)',
-                  hint: '15.00',
-                  controller: _feeCtrl,
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 16),
-              AppButton(
-                label: 'Save',
-                isLoading: settings.isLoading,
-                onPressed: () {
-                  final newFee = double.tryParse(_feeCtrl.text);
-                  if (newFee != null) {
-                    settings.updateDeliveryFee(newFee);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Settings updated!'), backgroundColor: AppColors.success),
-                    );
-                  }
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _KpiGrid extends StatelessWidget {
   final stats;
@@ -274,9 +208,9 @@ class _RevenueChartCard extends StatelessWidget {
                   drawVerticalLine: false,
                 ),
                 titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -408,37 +342,63 @@ class _RecentOrdersCard extends StatelessWidget {
           if (orders.isEmpty)
             const EmptyState(title: 'No orders yet', icon: Icons.receipt_long_outlined)
           else
-            ...orders.take(4).map((order) => Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.divider))),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 18),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(order.orderId, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        Text(order.customerName ?? '', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+            ...orders.take(4).map((order) {
+              // Orders that are not Delivered or Cancelled are navigable
+              final isNavigable = order.orderStatus != 'Delivered' &&
+                  order.orderStatus != 'Cancelled';
+              return InkWell(
+                onTap: isNavigable
+                    ? () => context.go('/admin/orders/${order.id}')
+                    : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: AppColors.divider))),
+                  child: Row(
                     children: [
-                      Text('RM ${order.totalAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                      StatusBadge(status: order.orderStatus),
+                      Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                            color: AppColors.mint,
+                            borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.receipt_long_rounded,
+                            color: AppColors.primary, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(order.orderId,
+                                style: const TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w600)),
+                            Text(order.customerName ?? '',
+                                style: const TextStyle(
+                                    fontSize: 12, color: AppColors.textMuted)),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('RM ${order.totalAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 13)),
+                          StatusBadge(status: order.orderStatus),
+                        ],
+                      ),
+                      // Show chevron only for navigable orders
+                      if (isNavigable) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.chevron_right_rounded,
+                            color: AppColors.primary, size: 18),
+                      ],
                     ],
                   ),
-                ],
-              ),
-            )),
+                ),
+              );
+            }),
         ],
       ),
     );

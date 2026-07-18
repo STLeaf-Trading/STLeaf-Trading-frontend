@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,12 +7,11 @@ import 'package:intl/intl.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/core/constants/app_constants.dart';
 import 'package:stleaf_trading/data/models/order_model.dart';
-import 'package:stleaf_trading/data/models/instalment_model.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/providers/auth_provider.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart';
-import 'package:stleaf_trading/providers/settings_provider.dart';
+
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -23,20 +21,13 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  String _paymentMethod = 'Cash / COD';
+  String _paymentMethod = 'Pay at Counter';
   String _deliveryMethod = 'Deliver by Company';
   bool _isPlacing = false;
   final _commentCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   String _dbAddress = '';
   bool _isLoadingAddress = true;
-
-  // Instalment config
-  String _instalmentPreset = '3 Months';
-  int _customPeriods = 3;
-  String _customUnit = 'months';
-
-  final _customPeriodsCtrl = TextEditingController(text: '3');
 
   @override
   void initState() {
@@ -66,55 +57,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void dispose() {
     _commentCtrl.dispose();
-    _customPeriodsCtrl.dispose();
     _addressCtrl.dispose();
     super.dispose();
   }
 
-  int get _effectivePeriods {
-    switch (_instalmentPreset) {
-      case '1 Month': return 1;
-      case '3 Months': return 3;
-      case '6 Months': return 6;
-      default: return _customPeriods;
-    }
-  }
-
-  String get _effectiveUnit {
-    if (_instalmentPreset != 'Custom') return 'months';
-    return _customUnit;
-  }
-
-  DateTime _dueDate(int periodIndex) {
-    final now = DateTime.now();
-    switch (_effectiveUnit) {
-      case 'weeks':
-        return now.add(Duration(days: 7 * (periodIndex + 1)));
-      case 'years':
-        return DateTime(now.year + (periodIndex + 1), now.month, now.day);
-      default: // months
-        final m = now.month + (periodIndex + 1);
-        return DateTime(now.year + (m - 1) ~/ 12, ((m - 1) % 12) + 1, now.day);
-    }
-  }
-
   Future<void> _placeOrder() async {
-    setState(() => _isPlacing = true);
     final cart = context.read<CartProvider>();
+
+    // Delivery fee is determined by admin later
+    final double actualDeliveryFee = 0.0;
+    final double actualTotalAmount = cart.subtotal;
+
+    // MOQ check — only for delivery
+    if (_deliveryMethod == 'Deliver by Company' &&
+        cart.subtotal < AppConstants.minOrderForDelivery) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Minimum Order Not Met'),
+          content: Text(
+            'A minimum order of RM ${AppConstants.minOrderForDelivery.toStringAsFixed(0)} is required for delivery. '
+            'Please add more items or switch to self-pickup.',
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isPlacing = true);
     final auth = context.read<AuthProvider>();
     final orderProvider = context.read<OrderProvider>();
-    final instalmentProvider = context.read<InstalmentProvider>();
-    final settings = context.read<SettingsProvider>();
-
-    final double actualDeliveryFee = _deliveryMethod == 'Pickup' ? 0.0 : settings.deliveryFee;
-    final double actualTotalAmount = cart.subtotal + actualDeliveryFee;
 
     // Address validation
     String finalAddress = '';
     if (_deliveryMethod == 'Deliver by Company') {
       final uid = auth.currentUser?.id;
       if (uid == null) { setState(() => _isPlacing = false); return; }
-      
+
       finalAddress = _addressCtrl.text.trim();
       if (finalAddress.isEmpty) {
         if (!mounted) return;
@@ -123,9 +103,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           builder: (ctx) => AlertDialog(
             title: const Text('Address Required'),
             content: const Text('Please enter a delivery address to proceed.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-            ],
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
           ),
         );
         setState(() => _isPlacing = false);
@@ -145,25 +123,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ),
         );
-        
-        if (shouldUpdate == null) {
-          setState(() => _isPlacing = false);
-          return; // User dismissed the dialog
-        }
-        
+        if (shouldUpdate == null) { setState(() => _isPlacing = false); return; }
         if (shouldUpdate) {
           try {
             await FirebaseFirestore.instance.collection('customers').doc(uid).update({'address': finalAddress});
-          } catch (e) {
-            debugPrint('Failed to update address: $e');
-          }
+          } catch (e) { debugPrint('Failed to update address: $e'); }
         }
       } else if (_dbAddress.isEmpty && finalAddress.isNotEmpty) {
-         try {
-            await FirebaseFirestore.instance.collection('customers').doc(uid).update({'address': finalAddress});
-         } catch (e) {
-            debugPrint('Failed to update address: $e');
-         }
+        try {
+          await FirebaseFirestore.instance.collection('customers').doc(uid).update({'address': finalAddress});
+        } catch (e) { debugPrint('Failed to update address: $e'); }
       }
     }
 
@@ -187,14 +156,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         productId: i.product.id,
         productName: i.product.name,
         itemCode: i.product.itemCode,
-        packType: i.product.packType,
+        packType: i.selectedSize.unit,
         product: i.product,
         quantity: i.quantity,
-        price: i.product.effectivePrice,
+        price: i.selectedSize.effectivePrice,
         subtotal: i.subtotal,
         remarks: i.remarks,
       )).toList(),
     );
+
     OrderModel? placedOrder;
     try {
       placedOrder = await orderProvider.placeOrder(order);
@@ -208,42 +178,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
-    // Create instalment plan if selected
-    if (_paymentMethod == 'Instalment' && placedOrder != null) {
-      final periods = _effectivePeriods;
-      final amtPerPeriod = actualTotalAmount / periods;
-      final entries = List.generate(periods, (i) => InstalmentEntry(
-        periodNumber: i + 1,
-        dueDate: _dueDate(i),
-        amountDue: amtPerPeriod,
-        status: 'Pending',
-      ));
-
-      final plan = InstalmentPlanModel(
-        id: '',
-        orderId: placedOrder.id,
-        customerId: auth.currentUser?.id ?? '',
-        customerName: auth.currentUser?.name ?? '',
-        totalAmount: actualTotalAmount,
-        numberOfPeriods: periods,
-        periodUnit: _effectiveUnit,
-        amountPerPeriod: amtPerPeriod,
-        perPeriodPaymentMethod: 'Decided per phase',
-        createdAt: DateTime.now(),
-        entries: entries,
-      );
-
-      final planId = await instalmentProvider.createPlan(plan);
-      // Update order with instalmentPlanId
-      await FirebaseFirestore.instance.collection('orders').doc(placedOrder.id).update({
-        'instalmentPlanId': planId,
-      });
-    }
-
     await cart.clear();
 
     if (mounted) {
       setState(() => _isPlacing = false);
+
+      // Order placed successfully - skip payment proof for now.
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -258,15 +198,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 40),
               ),
               const SizedBox(height: 20),
-              Text('Order Placed!', style: Theme.of(ctx).textTheme.headlineMedium),
+              Text('Order Received!', style: Theme.of(ctx).textTheme.headlineMedium),
               const SizedBox(height: 8),
               Text(orderId, style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
               const SizedBox(height: 8),
-              const Text('Your order will be delivered tomorrow.',
-                textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
+              const Text(
+                'Your order has been submitted.\nPlease wait for admin confirmation before making payment.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
               const SizedBox(height: 24),
               AppButton(
-                label: 'Track My Order',
+                label: 'View My Orders',
                 icon: Icons.local_shipping_rounded,
                 width: double.infinity,
                 onPressed: () { Navigator.pop(ctx); context.go('/shop/orders'); },
@@ -281,9 +224,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
-    final settings = context.watch<SettingsProvider>();
-    final double actualDeliveryFee = _deliveryMethod == 'Pickup' ? 0.0 : settings.deliveryFee;
-    final double actualTotalAmount = cart.subtotal + actualDeliveryFee;
+    final double actualDeliveryFee = 0.0;
+    final double actualTotalAmount = cart.subtotal;
+    final bool belowMoq = _deliveryMethod == 'Deliver by Company' &&
+        cart.subtotal < AppConstants.minOrderForDelivery;
 
     return CustomerLayout(
       currentRoute: '/shop',
@@ -299,12 +243,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 20),
                 _deliveryInfoCard(context),
                 const SizedBox(height: 16),
-                _paymentMethodCard(),
-                const SizedBox(height: 16),
-                if (_paymentMethod == 'Instalment') ...[
-                  _instalmentConfigCard(actualTotalAmount),
+                // MOQ warning at checkout
+                if (belowMoq) ...[
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.warningLight,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(
+                        'Minimum RM ${AppConstants.minOrderForDelivery.toStringAsFixed(0)} required for delivery. '
+                        'Switch to Pickup to proceed with current cart.',
+                        style: const TextStyle(color: AppColors.warning, fontSize: 13, fontWeight: FontWeight.w600),
+                      )),
+                    ]),
+                  ),
                   const SizedBox(height: 16),
                 ],
+                _paymentMethodCard(),
+                const SizedBox(height: 16),
                 _orderItemsCard(cart),
                 const SizedBox(height: 16),
                 _orderCommentCard(),
@@ -316,6 +277,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               deliveryFee: actualDeliveryFee,
               totalAmount: actualTotalAmount,
               isPlacing: _isPlacing,
+              belowMoq: belowMoq,
               onPlace: _placeOrder,
             );
 
@@ -374,10 +336,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               maxLines: 2,
               decoration: InputDecoration(
                 hintText: 'Enter your full delivery address',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
                 contentPadding: const EdgeInsets.all(12),
               ),
             ),
@@ -385,11 +344,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(10)),
-            child: Row(children: [
-              const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Expanded(child: Text(AppConstants.deliveryPolicy,
-                style: const TextStyle(fontSize: 13, color: AppColors.primary))),
+            child: const Row(children: [
+              Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
+              SizedBox(width: 8),
+              Expanded(child: Text(
+                'Orders placed before 6 PM will be delivered the next morning.',
+                style: TextStyle(fontSize: 13, color: AppColors.primary))),
             ]),
           ),
         ],
@@ -412,12 +372,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ]),
         const SizedBox(height: 16),
         ...AppConstants.paymentMethods.map((method) {
-          IconData icon = Icons.money_rounded;
-          if (method == 'Bank Transfer') icon = Icons.account_balance_rounded;
-          if (method == 'Credit Term') icon = Icons.credit_score_rounded;
-          if (method == 'FPX (Online Banking)') icon = Icons.language_rounded;
-          if (method == 'Touch \'n Go (TNG)') icon = Icons.nfc_rounded;
-          if (method == 'Instalment') icon = Icons.calendar_month_rounded;
+          IconData icon = Icons.storefront_rounded;
+          if (method.contains('TNG') || method.contains('Touch')) icon = Icons.nfc_rounded;
+          if (method.contains('Maybank') || method.contains('Transfer')) icon = Icons.account_balance_rounded;
 
           return RadioListTile<String>(
             value: method, groupValue: _paymentMethod,
@@ -432,107 +389,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             tileColor: _paymentMethod == method ? AppColors.mint : null,
           );
         }),
-      ]),
-    );
-  }
-
-  Widget _instalmentConfigCard(double totalAmount) {
-    final periods = _effectivePeriods;
-    final amtPerPeriod = periods > 0 ? totalAmount / periods : totalAmount;
-
-    return AppCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
-          Icon(Icons.calendar_month_rounded, color: AppColors.primary, size: 20),
-          SizedBox(width: 8),
-          Text('Instalment Plan', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
-        ]),
-        const SizedBox(height: 16),
-
-        // Period presets
-        const Text('Period', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8, runSpacing: 8,
-          children: AppConstants.instalmentPresets.map((preset) {
-            final isSelected = _instalmentPreset == preset;
-            return ChoiceChip(
-              label: Text(preset),
-              selected: isSelected,
-              onSelected: (_) => setState(() => _instalmentPreset = preset),
-              selectedColor: AppColors.primary,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 16),
-
-        // Custom period input
-        if (_instalmentPreset == 'Custom') ...[
-          Row(children: [
-            Expanded(
-              flex: 2,
-              child: TextField(
-                controller: _customPeriodsCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: 'Number of periods',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  isDense: true,
-                ),
-                onChanged: (v) {
-                  final parsed = int.tryParse(v);
-                  if (parsed != null && parsed > 0) setState(() => _customPeriods = parsed);
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _customUnit,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-                items: ['weeks', 'months', 'years'].map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
-                onChanged: (v) => setState(() => _customUnit = v!),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 16),
-        ],
-
-
-        // Preview
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.mint,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Total', style: TextStyle(fontSize: 13, color: AppColors.primary)),
-              Text('RM ${totalAmount.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
-            ]),
-            const SizedBox(height: 6),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('$periods × per ${_effectiveUnit.replaceAll('s', '')}',
-                style: const TextStyle(fontSize: 13, color: AppColors.primary)),
-              Text('RM ${amtPerPeriod.toStringAsFixed(2)} each',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
-            ]),
-            const Divider(height: 16, color: AppColors.primaryLight),
-            Text('First payment due: ${DateFormat('d MMM yyyy').format(_dueDate(0))}',
-              style: const TextStyle(fontSize: 12, color: AppColors.primary)),
-          ]),
-        ),
       ]),
     );
   }
@@ -595,6 +451,7 @@ class _OrderSummary extends StatelessWidget {
   final double deliveryFee;
   final double totalAmount;
   final bool isPlacing;
+  final bool belowMoq;
   final VoidCallback onPlace;
 
   const _OrderSummary({
@@ -603,6 +460,7 @@ class _OrderSummary extends StatelessWidget {
     required this.deliveryFee,
     required this.totalAmount,
     required this.isPlacing,
+    required this.belowMoq,
     required this.onPlace,
   });
 
@@ -614,21 +472,24 @@ class _OrderSummary extends StatelessWidget {
         const SizedBox(height: 16),
         _row('Subtotal', 'RM ${cart.subtotal.toStringAsFixed(2)}'),
         const SizedBox(height: 8),
-        _row('Delivery Fee', 'RM ${deliveryFee.toStringAsFixed(2)}'),
+        if (deliveryFee == 0)
+          _row('Delivery Fee', 'TBD by Admin')
+        else
+          _row('Delivery Fee', 'RM ${deliveryFee.toStringAsFixed(2)}'),
         _row('Payment', paymentMethod),
         const Divider(height: 24),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          const Text('Preview Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           Text('RM ${totalAmount.toStringAsFixed(2)}',
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primary)),
         ]),
         const SizedBox(height: 20),
         AppButton(
-          label: 'Place Order',
-          icon: Icons.check_circle_rounded,
+          label: belowMoq ? 'Min. RM 100 for Delivery' : 'Place Order',
+          icon: belowMoq ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
           isLoading: isPlacing,
           width: double.infinity,
-          onPressed: cart.isEmpty ? null : onPlace,
+          onPressed: (cart.isEmpty || belowMoq) ? null : onPlace,
         ),
         const SizedBox(height: 12),
         AppButton(

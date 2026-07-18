@@ -170,7 +170,7 @@ class _ExportWizardDialogState extends State<ExportWizardDialog> {
       List<OrderModel> orders = snap.docs.map((doc) => OrderModel.fromFirestore(doc)).toList();
 
       if (filterEnd != null) {
-        orders = orders.where((o) => o.orderDate.isBefore(filterEnd!) || o.orderDate.isAtSameMomentAs(filterEnd!)).toList();
+        orders = orders.where((o) => o.orderDate.isBefore(filterEnd!) || o.orderDate.isAtSameMomentAs(filterEnd)).toList();
       }
 
       if (orders.isEmpty) {
@@ -255,7 +255,7 @@ class _ExportWizardDialogState extends State<ExportWizardDialog> {
               const Text('2. Select Time Range', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textSecondary)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedTimeRange,
+                initialValue: _selectedTimeRange,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -324,7 +324,7 @@ class _ExportWizardDialogState extends State<ExportWizardDialog> {
                   const Expanded(child: Text('3. Filter by Customer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textSecondary))),
                   Switch(
                     value: _filterByCustomer,
-                    activeColor: AppColors.primary,
+                    activeThumbColor: AppColors.primary,
                     onChanged: (val) => setState(() => _filterByCustomer = val),
                   ),
                 ],
@@ -332,7 +332,7 @@ class _ExportWizardDialogState extends State<ExportWizardDialog> {
               if (_filterByCustomer) ...[
                 const SizedBox(height: 8),
                 DropdownButtonFormField<CustomerModel>(
-                  value: _selectedCustomer,
+                  initialValue: _selectedCustomer,
                   hint: const Text('Choose a customer...'),
                   decoration: InputDecoration(
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

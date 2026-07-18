@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/app_providers.dart';
-import 'providers/settings_provider.dart';
 import 'routes/app_router.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -47,6 +46,7 @@ class _AppInitializerState extends State<AppInitializer> {
       }
     }
 
+
     debugPrint("ST_DEBUG: Initializing AuthProvider...");
     _authProvider = AuthProvider();
     await _authProvider!.init();
@@ -85,7 +85,6 @@ class _AppInitializerState extends State<AppInitializer> {
         ChangeNotifierProvider(create: (_) => InventoryProvider()),
         ChangeNotifierProvider(create: (_) => DeliveryProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
             ChangeNotifierProvider(create: (_) => InstalmentProvider()),
           ],
           child: const STLeafApp(),
@@ -119,8 +118,6 @@ class _STLeafAppState extends State<STLeafApp> {
         final products = context.read<ProductProvider>();
         await products.loadProducts();
         
-        // Ensure settings re-sync after authentication
-        context.read<SettingsProvider>().loadSettings();
         
         if (auth.isCustomer) {
           final cart = context.read<CartProvider>();

@@ -133,7 +133,7 @@ class _AlertBanner extends StatelessWidget {
       child: Row(children: [
         Icon(icon, color: textColor, size: 18),
         const SizedBox(width: 10),
-        Text(message, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+        Expanded(child: Text(message, style: TextStyle(color: textColor, fontWeight: FontWeight.w500))),
       ]),
     );
   }

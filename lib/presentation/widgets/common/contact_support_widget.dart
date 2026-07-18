@@ -3,12 +3,26 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 
 class ContactSupportUtils {
-  static Future<void> _launchUrl(String url) async {
+  static Future<void> launchUrlString(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
       debugPrint('Could not launch $url');
+    }
+  }
+
+  static Future<void> launchWhatsApp(String phone) async {
+    final whatsappUri = Uri.parse("whatsapp://send?phone=$phone");
+    if (await canLaunchUrl(whatsappUri)) {
+      await launchUrl(whatsappUri);
+    } else {
+      final webUri = Uri.parse("https://wa.me/$phone");
+      if (await canLaunchUrl(webUri)) {
+        await launchUrl(webUri);
+      } else {
+        debugPrint('Could not launch WhatsApp for $phone');
+      }
     }
   }
 
@@ -39,7 +53,7 @@ class ContactSupportUtils {
                 title: 'WhatsApp',
                 subtitle: '011-2889 2991',
                 color: const Color(0xFF25D366),
-                onTap: () => _launchUrl('https://wa.me/601128892991'),
+                onTap: () => launchWhatsApp('601128892991'),
               ),
               const SizedBox(height: 12),
               _contactTile(
@@ -47,7 +61,7 @@ class ContactSupportUtils {
                 title: 'Phone Call',
                 subtitle: '011-2889 2991',
                 color: AppColors.info,
-                onTap: () => _launchUrl('tel:+601128892991'),
+                onTap: () => launchUrlString('tel:+601128892991'),
               ),
               const SizedBox(height: 12),
               _contactTile(
@@ -55,7 +69,7 @@ class ContactSupportUtils {
                 title: 'Email',
                 subtitle: 'stleaf9193@gmail.com',
                 color: AppColors.danger,
-                onTap: () => _launchUrl('mailto:stleaf9193@gmail.com'),
+                onTap: () => launchUrlString('mailto:stleaf9193@gmail.com'),
               ),
               const SizedBox(height: 24),
               _buildLocationAndHours(),
@@ -158,7 +172,7 @@ class ContactSupportFAB extends StatelessWidget {
     return FloatingActionButton(
       onPressed: () => ContactSupportUtils.showContactOptions(context),
       backgroundColor: AppColors.primary,
-      child: const Icon(Icons.headset_mic_rounded, color: AppColors.white),
+      child: const Icon(Icons.support_agent_rounded, color: AppColors.white),
     );
   }
 }

@@ -61,14 +61,14 @@ class _SidebarContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.read<AuthProvider>();
     final items = [
-      _SidebarItem(icon: Icons.dashboard_rounded, label: 'Dashboard', route: '/admin/dashboard'),
-      _SidebarItem(icon: Icons.inventory_2_rounded, label: 'Products', route: '/admin/products'),
-      _SidebarItem(icon: Icons.warehouse_rounded, label: 'Inventory', route: '/admin/inventory'),
-      _SidebarItem(icon: Icons.people_rounded, label: 'Customers', route: '/admin/customers'),
-      _SidebarItem(icon: Icons.receipt_long_rounded, label: 'Orders', route: '/admin/orders'),
-      _SidebarItem(icon: Icons.local_shipping_rounded, label: 'Delivery', route: '/admin/delivery'),
-      _SidebarItem(icon: Icons.account_balance_wallet_rounded, label: 'Instalments', route: '/admin/instalments'),
-      _SidebarItem(icon: Icons.bar_chart_rounded, label: 'Reports', route: '/admin/reports'),
+      const _SidebarItem(icon: Icons.dashboard_rounded, label: 'Dashboard', route: '/admin/dashboard'),
+      const _SidebarItem(icon: Icons.inventory_2_rounded, label: 'Products', route: '/admin/products'),
+      const _SidebarItem(icon: Icons.warehouse_rounded, label: 'Inventory', route: '/admin/inventory'),
+      const _SidebarItem(icon: Icons.people_rounded, label: 'Customers', route: '/admin/customers'),
+      const _SidebarItem(icon: Icons.receipt_long_rounded, label: 'Orders', route: '/admin/orders'),
+      const _SidebarItem(icon: Icons.local_shipping_rounded, label: 'Delivery', route: '/admin/delivery'),
+      // _SidebarItem(icon: Icons.account_balance_wallet_rounded, label: 'Instalments', route: '/admin/instalments'), // Hidden: feature temporarily disabled
+      const _SidebarItem(icon: Icons.bar_chart_rounded, label: 'Reports', route: '/admin/reports'),
     ];
 
     return Column(
@@ -84,9 +84,9 @@ class _SidebarContent extends StatelessWidget {
                   Container(
                     width: 40, height: 40,
                     decoration: BoxDecoration(
-                      color: AppColors.accent, borderRadius: BorderRadius.circular(12),
+                      color: AppColors.white, borderRadius: BorderRadius.circular(12),
                     ),
-                    child: ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.asset('assets/images/logo.jpeg', width: 22, height: 22, fit: BoxFit.cover)),
+                    child: ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.asset('assets/images/logo.jpeg', fit: BoxFit.contain)),
                   ),
                   const SizedBox(width: 12),
                   const Column(
@@ -148,8 +148,27 @@ class _SidebarContent extends StatelessWidget {
           ),
         ),
 
-        // Logout
+        // Switch to Customer View + Logout
         const Divider(color: Colors.white12, height: 1),
+        // Switch to Customer portal
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: InkWell(
+            onTap: () => context.go('/shop'),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: const Row(
+                children: [
+                  Icon(Icons.storefront_rounded, color: Color(0xFF81C784), size: 20),
+                  SizedBox(width: 12),
+                  Text('Customer View',
+                      style: TextStyle(color: Color(0xFF81C784), fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(12),
           child: InkWell(

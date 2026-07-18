@@ -21,6 +21,15 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> _updateUser(User? user) async {
     if (user != null) {
+      final enforceVerificationAfter = DateTime(2026, 6, 22);
+      final creationTime = user.metadata.creationTime;
+      if (creationTime != null && creationTime.isAfter(enforceVerificationAfter)) {
+        if (!user.emailVerified) {
+          _currentUser = null;
+          return;
+        }
+      }
+
       final doc = await _db.collection('users').doc(user.uid).get();
       if (doc.exists) {
         _currentUser = UserModel.fromFirestore(doc);
@@ -29,6 +38,24 @@ class AuthProvider extends ChangeNotifier {
       }
     } else {
       _currentUser = null;
+    }
+  }
+
+  Future<bool> waitForEmailVerification() async {
+    while (true) {
+      await Future.delayed(const Duration(seconds: 3));
+      final user = _auth.currentUser;
+      if (user == null) return false;
+      try {
+        await user.reload();
+      } catch (e) {
+        return false;
+      }
+      if (_auth.currentUser?.emailVerified ?? false) {
+        await _updateUser(_auth.currentUser);
+        notifyListeners();
+        return true;
+      }
     }
   }
 
@@ -117,9 +144,9 @@ class AuthProvider extends ChangeNotifier {
           'createdAt': FieldValue.serverTimestamp(),
         });
         
-        // Send verification email and sign out
+        // Send verification email and wait for verification
         await userCredential.user!.sendEmailVerification();
-        await _auth.signOut();
+        // DO NOT sign out here so we can poll for email verification status
       }
       _isLoading = false;
       notifyListeners();

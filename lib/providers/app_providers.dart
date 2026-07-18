@@ -6,7 +6,6 @@ import '../data/models/product_model.dart';
 import '../data/models/customer_model.dart';
 import '../data/models/order_model.dart';
 import '../data/models/instalment_model.dart';
-import 'dart:typed_data';
 import '../data/models/inventory_model.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../core/constants/app_constants.dart';
@@ -19,6 +18,9 @@ class ProductProvider extends ChangeNotifier {
   bool _isLoading = false;
   String _searchQuery = '';
   String _selectedCategory = 'All';
+  // Sorting state — default: sort by itemCode ascending
+  String _sortField = 'itemCode';
+  bool _sortAscending = true;
   StreamSubscription? _sub;
 
   List<ProductModel> get products => _filtered;
@@ -26,6 +28,8 @@ class ProductProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
+  String get sortField => _sortField;
+  bool get sortAscending => _sortAscending;
 
   List<String> get dynamicCategories {
     final Set<String> cats = {'All'};
@@ -39,13 +43,45 @@ class ProductProvider extends ChangeNotifier {
   }
 
   List<ProductModel> get _filtered {
-    return _products.where((p) {
+    final filtered = _products.where((p) {
       final matchesCategory = _selectedCategory == 'All' || p.category == _selectedCategory;
       final matchesSearch = _searchQuery.isEmpty ||
           p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           p.itemCode.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     }).toList();
+
+    // Apply sorting
+    filtered.sort((a, b) {
+      int cmp;
+      switch (_sortField) {
+        case 'itemCode':
+          cmp = a.itemCode.toLowerCase().compareTo(b.itemCode.toLowerCase());
+          break;
+        case 'name':
+          cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          break;
+        case 'price':
+          cmp = (a.effectivePrice).compareTo(b.effectivePrice);
+          break;
+        case 'stock':
+          cmp = a.stockQuantity.compareTo(b.stockQuantity);
+          break;
+        case 'category':
+          cmp = a.category.toLowerCase().compareTo(b.category.toLowerCase());
+          break;
+        default:
+          cmp = a.itemCode.toLowerCase().compareTo(b.itemCode.toLowerCase());
+      }
+      return _sortAscending ? cmp : -cmp;
+    });
+    return filtered;
+  }
+
+  void setSorting(String field, bool ascending) {
+    _sortField = field;
+    _sortAscending = ascending;
+    notifyListeners();
   }
 
   Future<void> loadProducts() async {
@@ -109,10 +145,11 @@ class ProductProvider extends ChangeNotifier {
 // CART PROVIDER
 class CartItem {
   final ProductModel product;
+  final ProductSizeModel selectedSize;
   double quantity;
   final String? remarks;
-  CartItem({required this.product, required this.quantity, this.remarks});
-  double get subtotal => product.effectivePrice * quantity;
+  CartItem({required this.product, required this.selectedSize, required this.quantity, this.remarks});
+  double get subtotal => selectedSize.effectivePrice * quantity;
 }
 
 class CartProvider extends ChangeNotifier {
@@ -133,11 +170,12 @@ class CartProvider extends ChangeNotifier {
     try {
       final doc = await _db.collection('carts').doc(uid).get();
       if (!doc.exists) return;
-      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final data = doc.data() ?? {};
       final rawItems = data['items'] as List<dynamic>? ?? [];
       _items.clear();
       for (final raw in rawItems) {
         final productId = raw['productId'] as String? ?? '';
+        final sizeUnit = raw['sizeUnit'] as String? ?? '';
         final quantity = (raw['quantity'] as num?)?.toDouble() ?? 1.0;
         final remarks = raw['remarks'] as String?;
         // Match against loaded products
@@ -150,22 +188,31 @@ class CartProvider extends ChangeNotifier {
             category: '',
             description: '',
             precaution: '',
-            price: (raw['price'] as num?)?.toDouble() ?? 0,
-            packType: raw['packType'] ?? 'kg',
-            weightKg: (raw['weightKg'] as num?)?.toDouble() ?? 1.0,
+            sizes: [
+              ProductSizeModel(
+                unit: sizeUnit.isNotEmpty ? sizeUnit : (raw['packType'] ?? 'kg'),
+                price: (raw['price'] as num?)?.toDouble() ?? 0,
+                promotionPrice: null,
+              )
+            ],
             stockQuantity: 0,
             freshnessLevel: 5,
-            promotionPrice: null,
             imageUrl: raw['imageUrl'],
             lowStockLevel: 5,
             status: 'Active',
           ),
         );
-        final idx = _items.indexWhere((i) => i.product.id == productId && i.remarks == remarks);
+        
+        final size = product.sizes.firstWhere(
+          (s) => s.unit == sizeUnit,
+          orElse: () => product.sizes.isNotEmpty ? product.sizes.first : ProductSizeModel(unit: sizeUnit, price: (raw['price'] as num?)?.toDouble() ?? 0),
+        );
+
+        final idx = _items.indexWhere((i) => i.product.id == productId && i.selectedSize.unit == size.unit && i.remarks == remarks);
         if (idx != -1) {
           _items[idx].quantity += quantity;
         } else {
-          _items.add(CartItem(product: product, quantity: quantity, remarks: remarks));
+          _items.add(CartItem(product: product, selectedSize: size, quantity: quantity, remarks: remarks));
         }
       }
       notifyListeners();
@@ -181,9 +228,8 @@ class CartProvider extends ChangeNotifier {
         'productId': i.product.id,
         'productName': i.product.name,
         'itemCode': i.product.itemCode,
-        'price': i.product.effectivePrice,
-        'packType': i.product.packType,
-        'weightKg': i.product.weightKg,
+        'sizeUnit': i.selectedSize.unit,
+        'price': i.selectedSize.effectivePrice,
         'imageUrl': i.product.imageUrl,
         'quantity': i.quantity,
         if (i.remarks != null && i.remarks!.isNotEmpty) 'remarks': i.remarks,
@@ -194,12 +240,12 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  void addToCart(ProductModel product, {double quantity = 1.0, String? remarks}) {
+  void addToCart(ProductModel product, ProductSizeModel size, {double quantity = 1.0, String? remarks}) {
     if (!product.isActive || product.isOutOfStock) {
       throw Exception('This product is currently unavailable.');
     }
 
-    final idx = _items.indexWhere((i) => i.product.id == product.id && i.remarks == remarks);
+    final idx = _items.indexWhere((i) => i.product.id == product.id && i.selectedSize.unit == size.unit && i.remarks == remarks);
     if (idx != -1) {
       if (_items[idx].quantity + quantity > product.stockQuantity) {
         throw Exception('Cannot add more. Max stock available: ${product.stockQuantity}');
@@ -209,14 +255,14 @@ class CartProvider extends ChangeNotifier {
       if (quantity > product.stockQuantity) {
         throw Exception('Cannot add more. Max stock available: ${product.stockQuantity}');
       }
-      _items.add(CartItem(product: product, quantity: quantity, remarks: remarks));
+      _items.add(CartItem(product: product, selectedSize: size, quantity: quantity, remarks: remarks));
     }
     notifyListeners();
     _saveCart();
   }
 
-  void updateQuantity(String productId, double qty) {
-    final idx = _items.indexWhere((i) => i.product.id == productId);
+  void updateQuantity(String productId, String sizeUnit, double qty) {
+    final idx = _items.indexWhere((i) => i.product.id == productId && i.selectedSize.unit == sizeUnit);
     if (idx != -1) {
       if (qty <= 0) {
         _items.removeAt(idx);
@@ -231,8 +277,8 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  void removeItem(String productId) {
-    _items.removeWhere((i) => i.product.id == productId);
+  void removeItem(String productId, String sizeUnit) {
+    _items.removeWhere((i) => i.product.id == productId && i.selectedSize.unit == sizeUnit);
     notifyListeners();
     _saveCart();
   }
@@ -364,6 +410,10 @@ class OrderProvider extends ChangeNotifier {
     await _db.collection('orders').doc(orderId).update({'orderStatus': status});
   }
 
+  Future<void> updateOrderFields(String orderId, Map<String, dynamic> fields) async {
+    await _db.collection('orders').doc(orderId).update(fields);
+  }
+
   Future<void> updatePaymentStatus(String orderId, String status) async {
     await _db.collection('orders').doc(orderId).update({'paymentStatus': status});
   }
@@ -375,7 +425,59 @@ class OrderProvider extends ChangeNotifier {
       'cancelledAt': FieldValue.serverTimestamp(),
     });
   }
-  
+
+  /// Admin-triggered cleanup: deletes Cancelled orders older than 30 days.
+  /// Only orders with status 'Cancelled' are affected.
+  /// Orders with any other status (including Delivered) are never touched.
+  /// Returns the number of orders deleted.
+  Future<int> cleanupCancelledOrders() async {
+    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+    final cutoffTs = Timestamp.fromDate(cutoff);
+
+    // Try cancelledAt first, fall back to updatedAt, then createdAt.
+    // We run two queries because Firestore can't OR across different fields.
+    final snap1 = await _db
+        .collection('orders')
+        .where('orderStatus', isEqualTo: 'Cancelled')
+        .where('cancelledAt', isLessThan: cutoffTs)
+        .get();
+
+    final snap2 = await _db
+        .collection('orders')
+        .where('orderStatus', isEqualTo: 'Cancelled')
+        .where('createdAt', isLessThan: cutoffTs)
+        .get();
+
+    // Merge, deduplicate by doc ID
+    final allDocs = <String, QueryDocumentSnapshot>{};
+    for (final doc in [...snap1.docs, ...snap2.docs]) {
+      // Double-check cancelledAt is absent or old enough
+      final data = doc.data() as Map<String, dynamic>;
+      final cancelledAt = data['cancelledAt'] as Timestamp?;
+      if (cancelledAt != null && cancelledAt.compareTo(cutoffTs) >= 0) {
+        // cancelledAt is recent — skip
+        continue;
+      }
+      allDocs[doc.id] = doc;
+    }
+
+    if (allDocs.isEmpty) return 0;
+
+    // Batch delete (Firestore allows max 500 per batch)
+    int deleted = 0;
+    final docList = allDocs.values.toList();
+    for (int i = 0; i < docList.length; i += 500) {
+      final chunk = docList.sublist(i, i + 500 > docList.length ? docList.length : i + 500);
+      final batch = _db.batch();
+      for (final doc in chunk) {
+        batch.delete(doc.reference);
+        deleted++;
+      }
+      await batch.commit();
+    }
+    return deleted;
+  }
+
   @override
   void dispose() {
     _sub?.cancel();
@@ -484,7 +586,7 @@ class InventoryProvider extends ChangeNotifier {
     // Maps products to InventoryModel for compatibility
     _sub = _db.collection('products').snapshots().listen((snap) {
       _inventory = snap.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         return InventoryModel(
           id: doc.id,
           productId: doc.id,
@@ -567,18 +669,41 @@ class DashboardProvider extends ChangeNotifier {
   Future<void> loadStats() async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
-      
-      // Get today's orders
-      final todayOrdersSnap = await _db.collection('orders')
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-          .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-          .get();
-      
+
+      // ── Parallelise all independent Firestore queries ──────────────
+      // Previously these were sequential (8+ round-trips). Now they run
+      // concurrently, reducing total load time significantly on iOS/mobile.
+      final results = await Future.wait([
+        // [0] Today's orders
+        _db.collection('orders')
+            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+            .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+            .get(),
+        // [1] Pending orders count
+        _db.collection('orders').where('orderStatus', isEqualTo: 'Pending').get(),
+        // [2] Pending deliveries count
+        _db.collection('orders').where('orderStatus', isEqualTo: 'Out For Delivery').get(),
+        // [3] All products (for low-stock + top-products)
+        _db.collection('products').get(),
+        // [4] Active instalments (for outstanding debts)
+        _db.collection('instalments').where('status', isEqualTo: 'Active').get(),
+        // [5] All orders — used for revenue trend, top products, top customers
+        _db.collection('orders').get(),
+      ]);
+
+      final todayOrdersSnap     = results[0];
+      final pendingOrdersSnap   = results[1];
+      final pendingDelivSnap    = results[2];
+      final allProductsSnap     = results[3];
+      final instalmentsSnap     = results[4];
+      final allOrdersSnap       = results[5];
+
+      // Today stats
       int todayOrdersCount = 0;
       double todayRevenue = 0;
       for (var doc in todayOrdersSnap.docs) {
@@ -588,74 +713,66 @@ class DashboardProvider extends ChangeNotifier {
         todayRevenue += (data['totalAmount'] ?? 0).toDouble();
       }
 
-      // Get pending orders
-      final pendingOrdersSnap = await _db.collection('orders')
-          .where('orderStatus', isEqualTo: 'Pending')
-          .get();
-      int pendingOrdersCount = pendingOrdersSnap.docs.length;
+      final int pendingOrdersCount = pendingOrdersSnap.docs.length;
+      final int pendingDeliveriesCount = pendingDelivSnap.docs.length;
 
-      // Get pending deliveries
-      final pendingDeliveriesSnap = await _db.collection('orders')
-          .where('orderStatus', isEqualTo: 'Out For Delivery')
-          .get();
-      int pendingDeliveriesCount = pendingDeliveriesSnap.docs.length;
-
-      // Low stock products - compare stockQuantity < lowStockLevel per product
-      final allProductsSnap = await _db.collection('products').get();
+      // Low stock
       int lowStockCount = allProductsSnap.docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final stock = ((data['stockQuantity'] ?? 0) as num).toInt();
         final lowLevel = ((data['lowStockLevel'] ?? 10) as num).toInt();
         return stock > 0 && stock <= lowLevel;
       }).length;
 
-      // Outstanding debts (from instalments)
-      final instalmentsSnap = await _db.collection('instalments')
-          .where('status', isEqualTo: 'Active')
-          .get();
+      // Outstanding debts
       double outstandingDebts = 0;
       for (var doc in instalmentsSnap.docs) {
         final plan = InstalmentPlanModel.fromFirestore(doc);
         outstandingDebts += plan.totalRemaining;
       }
 
-      // 7-day revenue trend (cutoff each day is 23:59:59)
-      final List<RevenuePoint> revenueData = [];
-      for (int i = 6; i >= 0; i--) {
-        final day = now.subtract(Duration(days: i));
-        final dayStart = DateTime(day.year, day.month, day.day);
-        final dayEnd = DateTime(day.year, day.month, day.day, 23, 59, 59);
-        final snap = await _db.collection('orders')
-            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
-            .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(dayEnd))
-            .get();
-        double dayRevenue = 0;
-        for (var doc in snap.docs) {
-          final data = doc.data() as Map<String, dynamic>? ?? {};
-          if (data['orderStatus'] == 'Cancelled') continue;
-          dayRevenue += (data['totalAmount'] ?? 0).toDouble();
-        }
-        revenueData.add(RevenuePoint(
-          label: DateFormat('E').format(day),
-          amount: dayRevenue,
-        ));
-      }
-
-      // Top products by quantity sold in orders
-      final Map<String, String> productNames = {};
-      for (var doc in allProductsSnap.docs) {
-        productNames[doc.id] = (doc.data() as Map<String, dynamic>)['name'] ?? 'Unknown';
-      }
-
-      final allOrdersSnap = await _db.collection('orders').get();
-      final Map<String, _ProductStat> productStats = {};
+      // 7-day revenue trend — built from allOrdersSnap (no extra queries)
+      final Map<String, double> dayRevenueMap = {};
       for (var doc in allOrdersSnap.docs) {
         final data = doc.data() as Map<String, dynamic>? ?? {};
         if (data['orderStatus'] == 'Cancelled') continue;
+        final ts = data['createdAt'] as Timestamp?;
+        if (ts == null) continue;
+        final day = ts.toDate();
+        final key = DateFormat('yyyy-MM-dd').format(day);
+        dayRevenueMap[key] = (dayRevenueMap[key] ?? 0) + (data['totalAmount'] ?? 0).toDouble();
+      }
+
+      final List<RevenuePoint> revenueData = [];
+      for (int i = 6; i >= 0; i--) {
+        final day = now.subtract(Duration(days: i));
+        final key = DateFormat('yyyy-MM-dd').format(day);
+        revenueData.add(RevenuePoint(
+          label: DateFormat('E').format(day),
+          amount: dayRevenueMap[key] ?? 0,
+        ));
+      }
+
+      // Top products & top customers — reuse allOrdersSnap
+      final Map<String, String> productNames = {};
+      for (var doc in allProductsSnap.docs) {
+        productNames[doc.id] = (doc.data())['name'] ?? 'Unknown';
+      }
+
+      final Map<String, _ProductStat> productStats = {};
+      final Map<String, _CustomerStat> customerStats = {};
+
+      for (var doc in allOrdersSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>? ?? {};
+        if (data['orderStatus'] == 'Cancelled') continue;
+
+        // Products
         final items = data['items'] as List<dynamic>? ?? [];
         for (var item in items) {
           final productId = item['productId'] as String?;
-          final name = (item['productName'] as String?) ?? (productId != null ? productNames[productId] : null) ?? 'Unknown';
+          final name = (item['productName'] as String?)
+              ?? (productId != null ? productNames[productId] : null)
+              ?? 'Unknown';
           final qty = ((item['quantity'] ?? 0) as num).toDouble();
           final rev = ((item['subtotal'] ?? item['price'] ?? 0) as num).toDouble();
           productStats[name] = _ProductStat(
@@ -664,23 +781,19 @@ class DashboardProvider extends ChangeNotifier {
             revenue: (productStats[name]?.revenue ?? 0) + rev,
           );
         }
-      }
-      final sortedProducts = productStats.values.toList()
-        ..sort((a, b) => b.quantity.compareTo(a.quantity));
 
-      // Top customers
-      final Map<String, _CustomerStat> customerStats = {};
-      for (var doc in allOrdersSnap.docs) {
-        final data = doc.data() as Map<String, dynamic>? ?? {};
-        if (data['orderStatus'] == 'Cancelled') continue;
-        final name = data['customerName'] ?? 'Unknown';
+        // Customers
+        final custName = data['customerName'] ?? 'Unknown';
         final amount = (data['totalAmount'] ?? 0).toDouble();
-        customerStats[name] = _CustomerStat(
-          name: name,
-          orders: (customerStats[name]?.orders ?? 0) + 1,
-          totalSpent: (customerStats[name]?.totalSpent ?? 0) + amount,
+        customerStats[custName] = _CustomerStat(
+          name: custName,
+          orders: (customerStats[custName]?.orders ?? 0) + 1,
+          totalSpent: (customerStats[custName]?.totalSpent ?? 0) + amount,
         );
       }
+
+      final sortedProducts = productStats.values.toList()
+        ..sort((a, b) => b.quantity.compareTo(a.quantity));
       final sortedCustomers = customerStats.values.toList()
         ..sort((a, b) => b.totalSpent.compareTo(a.totalSpent));
 
@@ -692,13 +805,15 @@ class DashboardProvider extends ChangeNotifier {
         lowStockProducts: lowStockCount,
         outstandingDebts: outstandingDebts,
         revenueData: revenueData,
-        topProducts: sortedProducts.take(5).map<TopProduct>((p) => TopProduct(name: p.name, quantity: p.quantity, revenue: p.revenue)).toList(),
-        topCustomers: sortedCustomers.take(5).map<TopCustomer>((c) => TopCustomer(name: c.name, orders: c.orders, totalSpent: c.totalSpent)).toList(),
+        topProducts: sortedProducts.take(5).map<TopProduct>((p) =>
+            TopProduct(name: p.name, quantity: p.quantity, revenue: p.revenue)).toList(),
+        topCustomers: sortedCustomers.take(5).map<TopCustomer>((c) =>
+            TopCustomer(name: c.name, orders: c.orders, totalSpent: c.totalSpent)).toList(),
       );
-    } catch(e) {
-      debugPrint("Error loading real stats: $e");
+    } catch (e) {
+      debugPrint('Error loading dashboard stats: $e');
     }
-    
+
     _isLoading = false;
     notifyListeners();
   }
@@ -879,7 +994,7 @@ class InstalmentProvider extends ChangeNotifier {
   }) async {
     final custDoc = await _db.collection('customers').doc(customerId).get();
     if (!custDoc.exists) return;
-    final data = custDoc.data() as Map<String, dynamic>? ?? {};
+    final data = custDoc.data() ?? {};
     double current = (data['creditScore'] ?? 100.0).toDouble();
     double delta = isLate ? -10.0 : 5.0;
     double newScore = (current + delta).clamp(0.0, 100.0);

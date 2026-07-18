@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
+import 'package:stleaf_trading/data/models/product_model.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart';
 
@@ -16,6 +17,7 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   double _quantity = 1.0;
+  ProductSizeModel? _selectedSize;
   final TextEditingController _remarksController = TextEditingController();
   late final TextEditingController _qtyCtrl;
 
@@ -84,16 +86,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     void addToCart() {
       try {
-        cart.addToCart(p, quantity: _quantity, remarks: _remarksController.text.trim());
+        final size = _selectedSize ?? p.defaultSize;
+        if (size == null) throw Exception('No size available for this product.');
+        
+        cart.addToCart(p, size, quantity: _quantity, remarks: _remarksController.text.trim());
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${p.name} x$_quantity added to cart!'),
+          content: Text('${p.name} (${size.unit}) x$_quantity added to cart!'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           duration: const Duration(seconds: 1),
         ));
         Future.delayed(const Duration(milliseconds: 800), () {
-          if (context.mounted) context.go('/shop');
+          if (context.mounted) Navigator.pop(context);
         });
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -106,13 +111,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     }
 
-    return CustomerLayout(
-      currentRoute: '/shop',
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: LayoutBuilder(
-          builder: (ctx, constraints) {
-            final isWide = constraints.maxWidth > 700;
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: AppColors.white,
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        width: 900,
+        constraints: const BoxConstraints(maxHeight: 800),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(left: 24, right: 24, bottom: 24),
+                child: LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final isWide = constraints.maxWidth > 700;
             if (isWide) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,6 +144,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(width: 32),
                   Expanded(child: _ProductInfo(
                     product: p, 
+                    selectedSize: _selectedSize ?? p.defaultSize,
+                    onSizeChange: (s) => setState(() => _selectedSize = s),
                     quantity: _quantity,
                     qtyCtrl: _qtyCtrl,
                     onIncrease: () => _increment(p.stockQuantity),
@@ -138,6 +163,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 const SizedBox(height: 20),
                 _ProductInfo(
                   product: p, 
+                  selectedSize: _selectedSize ?? p.defaultSize,
+                  onSizeChange: (s) => setState(() => _selectedSize = s),
                   quantity: _quantity,
                   qtyCtrl: _qtyCtrl,
                   onIncrease: () => _increment(p.stockQuantity),
@@ -148,7 +175,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
               ],
             );
-          },
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -161,16 +192,44 @@ class _ProductImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 320,
-      decoration: BoxDecoration(
-        color: AppColors.mint,
-        borderRadius: BorderRadius.circular(20),
-        image: product.imageUrl != null ? DecorationImage(
-          image: NetworkImage(product.imageUrl!), fit: BoxFit.cover
-        ) : null,
-      ),
-      child: Stack(
+    return GestureDetector(
+      onTap: () {
+        if (product.imageUrl != null) {
+          showDialog(
+            context: context,
+            builder: (_) => Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(16),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  InteractiveViewer(
+                    child: Image.network(product.imageUrl!),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      },
+      child: Container(
+        height: 320,
+        decoration: BoxDecoration(
+          color: AppColors.mint,
+          borderRadius: BorderRadius.circular(20),
+          image: product.imageUrl != null ? DecorationImage(
+            image: NetworkImage(product.imageUrl!), fit: BoxFit.cover
+          ) : null,
+        ),
+        child: Stack(
         children: [
           if (product.imageUrl == null)
             Center(child: Icon(Icons.eco_rounded, size: 120, color: AppColors.primary.withOpacity(0.25))),
@@ -179,18 +238,21 @@ class _ProductImage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(8)),
               child: Text(
-                '${((1 - product.promotionPrice / product.price) * 100).toStringAsFixed(0)}% OFF',
+                '${((1 - product.defaultSize!.promotionPrice! / product.defaultSize!.price) * 100).toStringAsFixed(0)}% OFF',
                 style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800),
               ),
             )),
         ],
+      ),
       ),
     );
   }
 }
 
 class _ProductInfo extends StatelessWidget {
-  final product;
+  final ProductModel product;
+  final ProductSizeModel? selectedSize;
+  final ValueChanged<ProductSizeModel> onSizeChange;
   final double quantity;
   final TextEditingController qtyCtrl;
   final VoidCallback onIncrease, onDecrease, onAddToCart;
@@ -199,6 +261,8 @@ class _ProductInfo extends StatelessWidget {
 
   const _ProductInfo({
     required this.product, 
+    required this.selectedSize,
+    required this.onSizeChange,
     required this.quantity,
     required this.qtyCtrl,
     required this.onIncrease, 
@@ -225,15 +289,38 @@ class _ProductInfo extends StatelessWidget {
         Text(p.category, style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
         const SizedBox(height: 16),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('RM ${p.effectivePrice.toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.primary)),
-          const SizedBox(width: 8),
-          if (p.hasPromotion) Text('RM ${p.price.toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 16, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),
-          const Spacer(),
-          Text('/${p.packType} · ${p.weightKg}kg', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+          if (selectedSize != null) ...[
+            Text('RM ${selectedSize!.effectivePrice.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.primary)),
+            const SizedBox(width: 8),
+            if (selectedSize!.hasPromotion) Text('RM ${selectedSize!.price.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 16, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),
+            const Spacer(),
+            Text('/${selectedSize!.unit}', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+          ],
         ]),
         const SizedBox(height: 20),
+
+        if (p.sizes.isNotEmpty) ...[
+          const Text('Size / Unit', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: p.sizes.map((s) {
+              final isSelected = selectedSize == s;
+              return ChoiceChip(
+                label: Text(s.unit, style: TextStyle(color: isSelected ? AppColors.white : AppColors.primary)),
+                selected: isSelected,
+                selectedColor: AppColors.primary,
+                backgroundColor: AppColors.mint,
+                side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
+                onSelected: (_) => onSizeChange(s),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+        ],
 
         // Description
         AppCard(
@@ -284,7 +371,7 @@ class _ProductInfo extends StatelessWidget {
                     style: IconButton.styleFrom(foregroundColor: AppColors.primary),
                   ),
                   SizedBox(
-                    width: 60,
+                    width: 100,
                     child: TextField(
                       controller: qtyCtrl,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -322,8 +409,10 @@ class _ProductInfo extends StatelessWidget {
             ],
           );
           
+          final currentSize = selectedSize ?? p.defaultSize;
+          final currentPrice = currentSize?.effectivePrice ?? p.effectivePrice;
           Widget totalText = Text(
-            'Total: RM ${(p.effectivePrice * quantity).toStringAsFixed(2)}',
+            'Total: RM ${(currentPrice * quantity).toStringAsFixed(2)}',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary),
           );
 

@@ -42,7 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Fetch credit score from CustomerProvider
     final customers = context.watch<CustomerProvider>().customers;
     final customer = customers.isNotEmpty
-        ? customers.firstWhere((c) => c.id == user?.id, orElse: () => customers.first)
+        ? customers.firstWhere((c) => c.id == user.id, orElse: () => customers.first)
         : null;
     final creditScore = customer?.creditScore ?? 100.0;
     final creditHistory = customer?.creditHistory ?? [];
@@ -73,9 +73,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(user?.name ?? '', style: const TextStyle(color: AppColors.white, fontSize: 22, fontWeight: FontWeight.w800)),
+                  Text(user.name ?? '', style: const TextStyle(color: AppColors.white, fontSize: 22, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 4),
-                  Text(user?.email ?? '', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 14)),
+                  Text(user.email ?? '', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 14)),
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -84,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      user?.role ?? '', style: const TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                      user.role ?? '', style: const TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -102,44 +102,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ]),
             const SizedBox(height: 12),
 
-            // Credit Score Card
-            AppCard(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  const Row(children: [
-                    Icon(Icons.star_rate_rounded, color: AppColors.warning, size: 20),
-                    SizedBox(width: 8),
-                    Text('Credit Score', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                  ]),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: creditColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text('${creditScore.toStringAsFixed(0)}%',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: creditColor)),
-                  ),
-                ]),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: creditScore / 100,
-                    minHeight: 10,
-                    backgroundColor: AppColors.border,
-                    color: creditColor,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(children: [
-                  _creditStat('✅ On-time', onTimeCount.toString(), AppColors.success),
-                  const SizedBox(width: 16),
-                  _creditStat('⚠️ Late', lateCount.toString(), AppColors.danger),
-                ]),
-              ]),
-            ),
-            const SizedBox(height: 16),
+
 
             // Account options
             AppCard(
@@ -150,8 +113,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _divider(),
                   _optionTile(context, Icons.receipt_long_rounded, 'My Orders', 'View your order history', () => context.go('/shop/orders')),
                   _divider(),
-                  _optionTile(context, Icons.account_balance_wallet_rounded, 'Instalment Orders', 'View and pay instalment phases', () => context.go('/shop/instalments')),
-                  _divider(),
+                  // Hidden: Instalment feature temporarily disabled
+                  // _optionTile(context, Icons.account_balance_wallet_rounded, 'Instalment Orders', 'View and pay instalment phases', () => context.go('/shop/instalments')),
+                  // _divider(),
                   _optionTile(context, Icons.storefront_rounded, 'Browse Products', 'Shop fresh vegetables', () => context.go('/shop')),
                   _divider(),
                   _optionTile(context, Icons.headset_mic_rounded, 'Contact Support', 'Get help with your orders', () => ContactSupportUtils.showContactOptions(context)),
@@ -208,7 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Container(
                   width: 48, height: 48,
-                  decoration: BoxDecoration(gradient: AppColors.primaryGradient, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(gradient: AppColors.primaryGradient, shape: BoxShape.circle),
                   child: ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.asset('assets/images/logo.jpeg', width: 24, height: 24, fit: BoxFit.cover)),
                 ),
                 const SizedBox(height: 8),

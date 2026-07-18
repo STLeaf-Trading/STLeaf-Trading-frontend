@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
-import 'package:stleaf_trading/core/constants/app_constants.dart';
 import 'package:stleaf_trading/data/models/product_model.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
@@ -88,6 +87,14 @@ class _FilterRow extends StatelessWidget {
   final ProductProvider provider;
   const _FilterRow({required this.provider});
 
+  static const _sortOptions = [
+    ('itemCode', 'Item Code'),
+    ('name', 'Name'),
+    ('price', 'Price (RM)'),
+    ('stock', 'Stock Qty'),
+    ('category', 'Category'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -109,6 +116,7 @@ class _FilterRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+          // Category filter
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
@@ -122,6 +130,38 @@ class _FilterRow extends StatelessWidget {
                   DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 14)))).toList(),
                 onChanged: (v) => provider.setCategory(v!),
               ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Sort field dropdown
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: AppColors.white, borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: provider.sortField,
+                items: _sortOptions.map(((String, String) opt) =>
+                  DropdownMenuItem(
+                    value: opt.$1,
+                    child: Text(opt.$2, style: const TextStyle(fontSize: 14)),
+                  )).toList(),
+                onChanged: (v) {
+                  if (v != null) provider.setSorting(v, provider.sortAscending);
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Asc / Desc toggle
+          IconButton(
+            tooltip: provider.sortAscending ? 'Sort Ascending' : 'Sort Descending',
+            onPressed: () => provider.setSorting(provider.sortField, !provider.sortAscending),
+            icon: Icon(
+              provider.sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+              color: AppColors.primary, size: 20,
             ),
           ),
         ],
@@ -140,7 +180,7 @@ class _ProductGrid extends StatelessWidget {
       builder: (ctx, constraints) {
         final crossCount = constraints.maxWidth > 1000 ? 4 : (constraints.maxWidth > 700 ? 3 : (constraints.maxWidth > 500 ? 2 : 1));
         final itemWidth = (constraints.maxWidth - 56 - (crossCount - 1) * 16) / crossCount;
-        final itemHeight = 130 + 225.0; // 130px for image + 225px for content
+        const itemHeight = 130 + 225.0; // 130px for image + 225px for content
         return GridView.builder(
           padding: const EdgeInsets.fromLTRB(28, 8, 28, 28),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -210,7 +250,7 @@ class _ProductCardState extends State<_ProductCard> {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(6)),
                         child: Text(
-                          '${((1 - p.promotionPrice! / p.price) * 100).toStringAsFixed(0)}% OFF',
+                          '${((1 - p.defaultSize!.promotionPrice! / p.defaultSize!.price) * 100).toStringAsFixed(0)}% OFF',
                           style: const TextStyle(color: AppColors.white, fontSize: 10, fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -218,8 +258,8 @@ class _ProductCardState extends State<_ProductCard> {
                   if (p.isOutOfStock)
                     Positioned.fill(
                       child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black38, borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                        decoration: const BoxDecoration(
+                          color: Colors.black38, borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                         ),
                         child: const Center(child: Text('OUT OF STOCK',
                           style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 12))),
@@ -248,9 +288,9 @@ class _ProductCardState extends State<_ProductCard> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (p.hasPromotion) Text('RM ${p.price.toStringAsFixed(2)}',
+                              if (p.hasPromotion) Text('RM ${p.defaultSize!.price.toStringAsFixed(2)}',
                                 style: const TextStyle(fontSize: 11, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),
-                              Text('RM ${p.effectivePrice.toStringAsFixed(2)}',
+                              Text('${p.sizes.length > 1 ? 'From ' : ''}RM ${p.effectivePrice.toStringAsFixed(2)}',
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.primary)),
                             ],
                           ),
@@ -342,7 +382,7 @@ class _ProductCardState extends State<_ProductCard> {
     if (!p.isActive) {
       // Make active
       final updated = ProductModel(
-        id: p.id, itemCode: p.itemCode, name: p.name, category: p.category, description: p.description, precaution: p.precaution, freshnessLevel: p.freshnessLevel, packType: p.packType, weightKg: p.weightKg, price: p.price, promotionPrice: p.promotionPrice, stockQuantity: p.stockQuantity, lowStockLevel: p.lowStockLevel, imageUrl: p.imageUrl,
+        id: p.id, itemCode: p.itemCode, name: p.name, category: p.category, description: p.description, precaution: p.precaution, freshnessLevel: p.freshnessLevel, sizes: p.sizes, stockQuantity: p.stockQuantity, lowStockLevel: p.lowStockLevel, imageUrl: p.imageUrl,
         status: 'Active',
         disabledReason: null,
       );
@@ -378,7 +418,7 @@ class _ProductCardState extends State<_ProductCard> {
             onPressed: () {
               final reason = reasonCtrl.text.trim();
               final updated = ProductModel(
-                id: p.id, itemCode: p.itemCode, name: p.name, category: p.category, description: p.description, precaution: p.precaution, freshnessLevel: p.freshnessLevel, packType: p.packType, weightKg: p.weightKg, price: p.price, promotionPrice: p.promotionPrice, stockQuantity: p.stockQuantity, lowStockLevel: p.lowStockLevel, imageUrl: p.imageUrl,
+                id: p.id, itemCode: p.itemCode, name: p.name, category: p.category, description: p.description, precaution: p.precaution, freshnessLevel: p.freshnessLevel, sizes: p.sizes, stockQuantity: p.stockQuantity, lowStockLevel: p.lowStockLevel, imageUrl: p.imageUrl,
                 status: 'Inactive',
                 disabledReason: reason.isEmpty ? 'Unavailable' : reason,
               );

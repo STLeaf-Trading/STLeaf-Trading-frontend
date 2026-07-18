@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/data/models/order_model.dart';
@@ -45,7 +44,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Delivery', style: Theme.of(context).textTheme.displaySmall),
-                  Text('Track all delivery orders', style: const TextStyle(color: AppColors.textSecondary)),
+                  const Text('Track all delivery orders', style: TextStyle(color: AppColors.textSecondary)),
                   const SizedBox(height: 24),
 
                   // Stats
@@ -213,7 +212,7 @@ class _DeliveryCard extends StatelessWidget {
 
                     final name = i.product?.name ?? (i.productName == 'Unknown' && pData != null ? pData.name : (i.productName == 'Unknown' ? 'Item' : i.productName));
                     final code = i.product?.itemCode ?? (i.itemCode.isEmpty && pData != null ? pData.itemCode : i.itemCode);
-                    final unit = i.product?.packType ?? (i.packType == 'kg' && pData != null ? pData.packType : i.packType);
+                    final unit = i.packType;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Column(
@@ -280,9 +279,9 @@ class _DeliveryCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               alignment: Alignment.center,
-              child: Row(
+              child: const Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
                   SizedBox(width: 8),
                   Text('Successfully Delivered', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w700)),

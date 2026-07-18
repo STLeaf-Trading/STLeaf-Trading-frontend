@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -23,17 +24,43 @@ import '../presentation/screens/customer/orders/instalment_detail_screen.dart';
 import '../presentation/screens/customer/profile/profile_screen.dart';
 import '../presentation/screens/customer/profile/edit_profile_screen.dart';
 import '../presentation/screens/customer/orders/customer_instalments_screen.dart';
+import '../presentation/screens/customer/checkout/payment_proof_screen.dart';
+
+// Routes that require the user to be logged in
+const _protectedPaths = [
+  '/shop/checkout',
+  '/shop/orders',
+  '/shop/profile',
+  '/shop/edit-profile',
+  '/shop/instalments',
+  '/shop/payment-proof',
+  '/admin',
+];
+
+bool _requiresAuth(String location) {
+  return _protectedPaths.any((p) => location.startsWith(p));
+}
 
 final router = GoRouter(
-  initialLocation: '/login',
+  initialLocation: kIsWeb ? '/shop' : '/login',
   redirect: (context, state) {
     final auth = context.read<AuthProvider>();
     final isLoggedIn = auth.isAuthenticated;
-    final isLoginPage = state.matchedLocation == '/login' || state.matchedLocation == '/register';
+    final location = state.matchedLocation;
+    final isAuthPage = location == '/login' || location == '/register';
 
-    if (!isLoggedIn && !isLoginPage) return '/login';
-    if (isLoggedIn && isLoginPage) {
-      return auth.isAdmin ? '/admin/dashboard' : '/shop';
+    if (kIsWeb) {
+      // WEB: Only protected routes require login
+      if (!isLoggedIn && _requiresAuth(location)) return '/login';
+      if (isLoggedIn && isAuthPage) {
+        return auth.isAdmin ? '/admin/dashboard' : '/shop';
+      }
+    } else {
+      // ANDROID: All routes require login (original behavior)
+      if (!isLoggedIn && !isAuthPage) return '/login';
+      if (isLoggedIn && isAuthPage) {
+        return auth.isAdmin ? '/admin/dashboard' : '/shop';
+      }
     }
     return null;
   },
@@ -61,8 +88,6 @@ final router = GoRouter(
 
     // Customer Routes
     GoRoute(path: '/shop', builder: (ctx, state) => const HomeScreen()),
-    GoRoute(path: '/shop/products/:id',
-      builder: (ctx, state) => ProductDetailScreen(productId: state.pathParameters['id']!)),
     GoRoute(path: '/shop/cart', builder: (ctx, state) => const CartScreen()),
     GoRoute(path: '/shop/checkout', builder: (ctx, state) => const CheckoutScreen()),
     GoRoute(path: '/shop/orders', builder: (ctx, state) => const MyOrdersScreen()),
@@ -75,5 +100,18 @@ final router = GoRouter(
     GoRoute(path: '/shop/instalments', builder: (ctx, state) => const CustomerInstalmentsScreen()),
     GoRoute(path: '/shop/profile', builder: (ctx, state) => const ProfileScreen()),
     GoRoute(path: '/shop/edit-profile', builder: (ctx, state) => const EditProfileScreen()),
+    GoRoute(
+      path: '/shop/payment-proof/:orderId',
+      builder: (ctx, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return PaymentProofScreen(
+          orderId: state.pathParameters['orderId']!,
+          orderRef: extra['orderRef'] as String? ?? '',
+          paymentMethod: extra['paymentMethod'] as String? ?? '',
+          totalAmount: (extra['totalAmount'] as num?)?.toDouble() ?? 0.0,
+          isDeliveryFee: extra['isDeliveryFee'] as bool? ?? false,
+        );
+      },
+    ),
   ],
 );

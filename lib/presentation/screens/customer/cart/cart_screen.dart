@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
+import 'package:stleaf_trading/core/constants/app_constants.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
+import 'package:stleaf_trading/providers/auth_provider.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart';
+import 'package:stleaf_trading/presentation/widgets/auth/auth_dialog.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -127,7 +131,7 @@ class _CartItemCardState extends State<_CartItemCard> {
               children: [
                 Text(widget.item.product.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 2),
-                Text('RM ${widget.item.product.effectivePrice.toStringAsFixed(2)} / ${widget.item.product.packType}',
+                Text('RM ${widget.item.selectedSize.effectivePrice.toStringAsFixed(2)} / ${widget.item.selectedSize.unit}',
                   style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                 if (widget.item.remarks != null && widget.item.remarks!.isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -152,9 +156,9 @@ class _CartItemCardState extends State<_CartItemCard> {
                   onTap: () {
                     final newQty = (widget.item.quantity - 1);
                     if (newQty <= 0) {
-                      cart.removeItem(widget.item.product.id);
+                      cart.removeItem(widget.item.product.id, widget.item.selectedSize.unit);
                     } else {
-                      cart.updateQuantity(widget.item.product.id, newQty);
+                      cart.updateQuantity(widget.item.product.id, widget.item.selectedSize.unit, newQty);
                       _qtyCtrl.text = newQty == newQty.truncate()
                           ? newQty.toInt().toString()
                           : newQty.toStringAsFixed(2);
@@ -170,7 +174,7 @@ class _CartItemCardState extends State<_CartItemCard> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: SizedBox(
-                    width: 52,
+                    width: 90,
                     child: TextField(
                       controller: _qtyCtrl,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -192,7 +196,7 @@ class _CartItemCardState extends State<_CartItemCard> {
                       onSubmitted: (val) {
                         final parsed = double.tryParse(val);
                         if (parsed != null && parsed > 0) {
-                          cart.updateQuantity(widget.item.product.id, parsed);
+                          cart.updateQuantity(widget.item.product.id, widget.item.selectedSize.unit, parsed);
                         } else {
                           final qty = widget.item.quantity;
                           _qtyCtrl.text = qty == qty.truncate() ? qty.toInt().toString() : qty.toStringAsFixed(2);
@@ -201,7 +205,7 @@ class _CartItemCardState extends State<_CartItemCard> {
                       onTapOutside: (_) {
                         final parsed = double.tryParse(_qtyCtrl.text);
                         if (parsed != null && parsed > 0) {
-                          cart.updateQuantity(widget.item.product.id, parsed);
+                          cart.updateQuantity(widget.item.product.id, widget.item.selectedSize.unit, parsed);
                         } else {
                           final qty = widget.item.quantity;
                           _qtyCtrl.text = qty == qty.truncate() ? qty.toInt().toString() : qty.toStringAsFixed(2);
@@ -214,7 +218,7 @@ class _CartItemCardState extends State<_CartItemCard> {
                 GestureDetector(
                   onTap: isUnavailable ? null : () {
                     final newQty = widget.item.quantity + 1;
-                    cart.updateQuantity(widget.item.product.id, newQty);
+                    cart.updateQuantity(widget.item.product.id, widget.item.selectedSize.unit, newQty);
                     _qtyCtrl.text = newQty.toInt().toString();
                   },
                   child: Container(
@@ -249,6 +253,9 @@ class _CartSummary extends StatelessWidget {
       }
     }
 
+    final double remaining = AppConstants.minOrderForDelivery - cart.subtotal;
+    final bool belowMoq = remaining > 0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -270,12 +277,52 @@ class _CartSummary extends StatelessWidget {
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primary)),
             ],
           ),
+          // MOQ warning
+          if (belowMoq) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warningLight,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.warning),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Add RM ${remaining.toStringAsFixed(2)} more for delivery. You can still choose self-pickup.',
+                      style: const TextStyle(fontSize: 12, color: AppColors.warning, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           AppButton(
-            label: hasUnavailableItems ? 'Remove Unavailable Items' : 'Proceed to Checkout',
-            icon: Icons.arrow_forward_rounded,
+            label: hasUnavailableItems 
+                ? 'Remove Unavailable Items' 
+                : (kIsWeb && !context.read<AuthProvider>().isAuthenticated)
+                    ? 'Sign In to Checkout'
+                    : 'Proceed to Checkout',
+            icon: hasUnavailableItems 
+                ? null 
+                : (kIsWeb && !context.read<AuthProvider>().isAuthenticated)
+                    ? Icons.login_rounded
+                    : Icons.arrow_forward_rounded,
             width: double.infinity,
-            onPressed: hasUnavailableItems ? null : () => context.go('/shop/checkout'),
+            onPressed: hasUnavailableItems 
+                ? null 
+                : () {
+                    if (kIsWeb && !context.read<AuthProvider>().isAuthenticated) {
+                      showAuthDialog(context);
+                    } else {
+                      context.go('/shop/checkout');
+                    }
+                  },
           ),
         ],
       ),

@@ -26,9 +26,9 @@ class LegalScreen extends StatelessWidget {
               Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineMedium)),
             ]),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'ST Leaf Trading · Last updated: June 2025',
-              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             const SizedBox(height: 24),
             if (type == 'terms') _buildTerms(context) else _buildPrivacy(context),

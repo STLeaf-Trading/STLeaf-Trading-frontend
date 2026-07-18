@@ -19,6 +19,21 @@ class ProductFormScreen extends StatefulWidget {
   State<ProductFormScreen> createState() => _ProductFormScreenState();
 }
 
+class _ProductSizeRow {
+  String unit;
+  TextEditingController priceCtrl;
+  TextEditingController promoCtrl;
+
+  _ProductSizeRow({required this.unit, String price = '', String promo = ''})
+      : priceCtrl = TextEditingController(text: price),
+        promoCtrl = TextEditingController(text: promo);
+
+  void dispose() {
+    priceCtrl.dispose();
+    promoCtrl.dispose();
+  }
+}
+
 class _ProductFormScreenState extends State<ProductFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _itemCodeCtrl = TextEditingController();
@@ -26,19 +41,16 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _categoryCtrl = TextEditingController(text: AppConstants.productCategories.first);
   final _descCtrl = TextEditingController();
   final _precautionCtrl = TextEditingController();
-  final _packTypeCtrl = TextEditingController();
-  final _priceCtrl = TextEditingController();
-  final _promoPriceCtrl = TextEditingController();
   final _stockCtrl = TextEditingController();
   final _lowStockCtrl = TextEditingController(text: '10');
-  final _weightCtrl = TextEditingController();
 
   double _freshnessValue = 10;
-  bool _hasPromo = false;
   bool _isSaving = false;
   
   Uint8List? _selectedImageBytes;
   String? _existingImageUrl;
+  
+  final List<_ProductSizeRow> _sizes = [];
 
   bool get _isEditing => widget.productId != null;
 
@@ -49,6 +61,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _loadProduct());
     } else {
       _itemCodeCtrl.text = 'VEG-${DateTime.now().millisecondsSinceEpoch % 1000}';
+      _sizes.add(_ProductSizeRow(unit: 'Kg'));
     }
   }
 
@@ -60,26 +73,29 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _categoryCtrl.text = p.category;
     _descCtrl.text = p.description;
     _precautionCtrl.text = p.precaution;
-    _packTypeCtrl.text = p.packType;
-    _priceCtrl.text = p.price.toString();
-    _weightCtrl.text = p.weightKg.toString();
     _stockCtrl.text = p.stockQuantity.toString();
     _lowStockCtrl.text = p.lowStockLevel.toString();
     _existingImageUrl = p.imageUrl;
+    _freshnessValue = p.freshnessLevel.toDouble();
     
-    setState(() {
-      _freshnessValue = p.freshnessLevel.toDouble();
-      _hasPromo = p.hasPromotion;
-      if (p.hasPromotion) _promoPriceCtrl.text = p.promotionPrice.toString();
-    });
+    for (final s in p.sizes) {
+      _sizes.add(_ProductSizeRow(
+        unit: s.unit,
+        price: s.price.toString(),
+        promo: s.promotionPrice?.toString() ?? '',
+      ));
+    }
+    if (_sizes.isEmpty) _sizes.add(_ProductSizeRow(unit: 'Kg'));
+    
+    setState(() {});
   }
 
   @override
   void dispose() {
     _itemCodeCtrl.dispose(); _nameCtrl.dispose(); _categoryCtrl.dispose();
-    _descCtrl.dispose(); _precautionCtrl.dispose(); _packTypeCtrl.dispose();
-    _priceCtrl.dispose(); _promoPriceCtrl.dispose(); _stockCtrl.dispose();
-    _lowStockCtrl.dispose(); _weightCtrl.dispose();
+    _descCtrl.dispose(); _precautionCtrl.dispose(); 
+    _stockCtrl.dispose(); _lowStockCtrl.dispose();
+    for (final s in _sizes) { s.dispose(); }
     super.dispose();
   }
 
@@ -119,6 +135,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_sizes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add at least one product size/price')));
+      return;
+    }
     
     final provider = context.read<ProductProvider>();
     final code = _itemCodeCtrl.text.trim();
@@ -138,6 +158,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       if (url != null) finalImageUrl = url;
     }
 
+    final productSizes = _sizes.map((s) => ProductSizeModel(
+      unit: s.unit,
+      price: double.tryParse(s.priceCtrl.text) ?? 0,
+      promotionPrice: s.promoCtrl.text.isNotEmpty ? double.tryParse(s.promoCtrl.text) : null,
+    )).toList();
+
     final product = ProductModel(
       id: widget.productId ?? const Uuid().v4(),
       itemCode: code,
@@ -146,10 +172,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       description: _descCtrl.text.trim(),
       precaution: _precautionCtrl.text.trim(),
       freshnessLevel: _freshnessValue.toInt(),
-      packType: _packTypeCtrl.text.trim(),
-      weightKg: double.tryParse(_weightCtrl.text) ?? 0,
-      price: double.tryParse(_priceCtrl.text) ?? 0,
-      promotionPrice: _hasPromo && _promoPriceCtrl.text.isNotEmpty ? double.tryParse(_promoPriceCtrl.text) : null,
+      sizes: productSizes,
       stockQuantity: int.tryParse(_stockCtrl.text) ?? 0,
       lowStockLevel: int.tryParse(_lowStockCtrl.text) ?? 10,
       imageUrl: finalImageUrl,
@@ -174,6 +197,17 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       );
       context.go('/admin/products');
     }
+  }
+
+  void _addSize() {
+    setState(() => _sizes.add(_ProductSizeRow(unit: 'Kg')));
+  }
+
+  void _removeSize(int index) {
+    setState(() {
+      _sizes[index].dispose();
+      _sizes.removeAt(index);
+    });
   }
 
   @override
@@ -204,44 +238,50 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
               LayoutBuilder(
                 builder: (ctx, constraints) {
-                  final isWide = constraints.maxWidth > 700;
+                  final isWide = constraints.maxWidth > 800;
                   if (isWide) {
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(flex: 3, child: _FormSection(
                           itemCodeCtrl: _itemCodeCtrl, nameCtrl: _nameCtrl, categoryCtrl: _categoryCtrl,
-                          descCtrl: _descCtrl, precautionCtrl: _precautionCtrl, packTypeCtrl: _packTypeCtrl,
-                          priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl, stockCtrl: _stockCtrl, lowStockCtrl: _lowStockCtrl, weightCtrl: _weightCtrl,
-                          freshnessValue: _freshnessValue, hasPromo: _hasPromo,
+                          descCtrl: _descCtrl, precautionCtrl: _precautionCtrl, 
+                          stockCtrl: _stockCtrl, lowStockCtrl: _lowStockCtrl,
+                          freshnessValue: _freshnessValue,
                           onFreshnessChanged: (v) => setState(() => _freshnessValue = v),
-                          onPromoToggled: (v) => setState(() => _hasPromo = v ?? false),
                           onImagePick: _showImagePickerModal,
                           imageBytes: _selectedImageBytes,
                           existingImageUrl: _existingImageUrl,
+                          sizes: _sizes,
+                          onAddSize: _addSize,
+                          onRemoveSize: _removeSize,
+                          onSizeUnitChanged: (index, val) => setState(() => _sizes[index].unit = val),
                         )),
                         const SizedBox(width: 24),
-                        SizedBox(width: 240, child: _PreviewCard(
+                        SizedBox(width: 260, child: _PreviewCard(
                           name: _nameCtrl.text, category: _categoryCtrl.text,
-                          freshnessLevel: _freshnessValue.toInt(), price: _priceCtrl.text,
-                          promoPrice: _hasPromo ? _promoPriceCtrl.text : null,
+                          freshnessLevel: _freshnessValue.toInt(),
                           imageBytes: _selectedImageBytes,
                           existingImageUrl: _existingImageUrl,
+                          defaultPrice: _sizes.isNotEmpty ? _sizes.first.priceCtrl.text : '0',
+                          defaultPromo: _sizes.isNotEmpty ? _sizes.first.promoCtrl.text : '',
                         )),
                       ],
                     );
                   }
                   return _FormSection(
                     itemCodeCtrl: _itemCodeCtrl, nameCtrl: _nameCtrl, categoryCtrl: _categoryCtrl,
-                    descCtrl: _descCtrl, precautionCtrl: _precautionCtrl, packTypeCtrl: _packTypeCtrl,
-                    priceCtrl: _priceCtrl, promoPriceCtrl: _promoPriceCtrl, stockCtrl: _stockCtrl,
-                    lowStockCtrl: _lowStockCtrl, weightCtrl: _weightCtrl,
-                    freshnessValue: _freshnessValue, hasPromo: _hasPromo,
+                    descCtrl: _descCtrl, precautionCtrl: _precautionCtrl,
+                    stockCtrl: _stockCtrl, lowStockCtrl: _lowStockCtrl, 
+                    freshnessValue: _freshnessValue,
                     onFreshnessChanged: (v) => setState(() => _freshnessValue = v),
-                    onPromoToggled: (v) => setState(() => _hasPromo = v ?? false),
                     onImagePick: _showImagePickerModal,
                     imageBytes: _selectedImageBytes,
                     existingImageUrl: _existingImageUrl,
+                    sizes: _sizes,
+                    onAddSize: _addSize,
+                    onRemoveSize: _removeSize,
+                    onSizeUnitChanged: (index, val) => setState(() => _sizes[index].unit = val),
                   );
                 },
               ),
@@ -290,7 +330,7 @@ class _PickerOption extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.mint, shape: BoxShape.circle),
+              decoration: const BoxDecoration(color: AppColors.mint, shape: BoxShape.circle),
               child: Icon(icon, color: AppColors.primary, size: 32),
             ),
             const SizedBox(height: 8),
@@ -303,24 +343,24 @@ class _PickerOption extends StatelessWidget {
 }
 
 class _FormSection extends StatelessWidget {
-  final TextEditingController itemCodeCtrl, nameCtrl, categoryCtrl, descCtrl, precautionCtrl, packTypeCtrl,
-      priceCtrl, promoPriceCtrl, stockCtrl, lowStockCtrl, weightCtrl;
+  final TextEditingController itemCodeCtrl, nameCtrl, categoryCtrl, descCtrl, precautionCtrl, stockCtrl, lowStockCtrl;
   final double freshnessValue;
-  final bool hasPromo;
   final ValueChanged<double> onFreshnessChanged;
-  final ValueChanged<bool?> onPromoToggled;
   final VoidCallback onImagePick;
   final Uint8List? imageBytes;
   final String? existingImageUrl;
+  final List<_ProductSizeRow> sizes;
+  final VoidCallback onAddSize;
+  final Function(int) onRemoveSize;
+  final Function(int, String) onSizeUnitChanged;
 
   const _FormSection({
     required this.itemCodeCtrl, required this.nameCtrl, required this.categoryCtrl,
-    required this.descCtrl, required this.precautionCtrl, required this.packTypeCtrl,
-    required this.priceCtrl, required this.promoPriceCtrl, required this.stockCtrl,
-    required this.lowStockCtrl, required this.weightCtrl,
-    required this.freshnessValue, required this.hasPromo,
-    required this.onFreshnessChanged, required this.onPromoToggled,
+    required this.descCtrl, required this.precautionCtrl, 
+    required this.stockCtrl, required this.lowStockCtrl, 
+    required this.freshnessValue, required this.onFreshnessChanged,
     required this.onImagePick, this.imageBytes, this.existingImageUrl,
+    required this.sizes, required this.onAddSize, required this.onRemoveSize, required this.onSizeUnitChanged,
   });
 
   @override
@@ -405,8 +445,13 @@ class _FormSection extends StatelessWidget {
                         textEditingController: categoryCtrl,
                         focusNode: FocusNode(),
                         optionsBuilder: (TextEditingValue textEditingValue) {
-                          if (textEditingValue.text.isEmpty) return AppConstants.productCategories;
-                          return AppConstants.productCategories.where((String option) =>
+                          // Use dynamicCategories so that any categories from existing
+                          // products also appear as suggestions — not just the hardcoded list.
+                          final allCats = context.read<ProductProvider>().dynamicCategories
+                              .where((c) => c != 'All')
+                              .toList();
+                          if (textEditingValue.text.isEmpty) return allCats;
+                          return allCats.where((String option) =>
                               option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
                         },
                         fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
@@ -482,25 +527,118 @@ class _FormSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+          
           AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Pricing & Stock', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
-                const SizedBox(height: 20),
-                responsiveRow([
-                  Expanded(child: AppTextField(label: 'Pack Type', hint: 'Bundle / KG / Pack', controller: packTypeCtrl)),
-                  const SizedBox(width: 16),
-                  Expanded(child: AppTextField(label: 'Weight (kg)', hint: '0.5', controller: weightCtrl,
-                    keyboardType: TextInputType.number)),
-                ]),
-                if (!isNarrow) const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Sizes & Pricing', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                    if (sizes.length < 4)
+                      TextButton.icon(
+                        onPressed: onAddSize, 
+                        icon: const Icon(Icons.add_rounded), 
+                        label: const Text('Add Size')
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: sizes.length,
+                  separatorBuilder: (ctx, _) => const Divider(height: 32),
+                  itemBuilder: (ctx, i) {
+                    if (isNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Unit Type', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                              if (sizes.length > 1)
+                                GestureDetector(
+                                  onTap: () => onRemoveSize(i),
+                                  child: const Text('Remove', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.danger)),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: sizes[i].unit.isNotEmpty ? sizes[i].unit : 'Kg',
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            items: AppConstants.productUnitTypes.map((String val) {
+                              return DropdownMenuItem(value: val, child: Text(val));
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) onSizeUnitChanged(i, val);
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(child: AppTextField(label: 'Price (RM)', hint: 'Optional', controller: sizes[i].priceCtrl, keyboardType: TextInputType.number)),
+                              const SizedBox(width: 12),
+                              Expanded(child: AppTextField(label: 'Promo (RM)', hint: 'Optional', controller: sizes[i].promoCtrl, keyboardType: TextInputType.number)),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Unit Type', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                value: sizes[i].unit.isNotEmpty ? sizes[i].unit : 'Kg',
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                ),
+                                items: AppConstants.productUnitTypes.map((String val) {
+                                  return DropdownMenuItem(value: val, child: Text(val));
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) onSizeUnitChanged(i, val);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: AppTextField(label: 'Price (RM)', hint: 'Optional', controller: sizes[i].priceCtrl, keyboardType: TextInputType.number)),
+                        const SizedBox(width: 12),
+                        Expanded(child: AppTextField(label: 'Promo (RM)', hint: 'Optional', controller: sizes[i].promoCtrl, keyboardType: TextInputType.number)),
+                        if (sizes.length > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 28, left: 12),
+                            child: IconButton(
+                              onPressed: () => onRemoveSize(i),
+                              icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
                 
+                const Divider(height: 48),
+                const Text('Inventory Stock', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                const SizedBox(height: 16),
                 responsiveRow([
-                  Expanded(child: AppTextField(label: 'Price (RM) *', hint: '3.50', controller: priceCtrl,
-                    keyboardType: TextInputType.number,
-                    validator: (v) => (v == null || v.isEmpty) ? 'Price is required' : null)),
-                  const SizedBox(width: 16),
                   Expanded(child: AppTextField(label: 'Stock Quantity *', hint: '100', controller: stockCtrl,
                     keyboardType: TextInputType.number,
                     validator: (v) => (v == null || v.isEmpty) ? 'Stock is required' : null)),
@@ -509,24 +647,11 @@ class _FormSection extends StatelessWidget {
                     keyboardType: TextInputType.number,
                     validator: (v) => (v == null || v.isEmpty) ? 'Required' : null)),
                 ]),
-                if (!isNarrow) const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Checkbox(value: hasPromo, onChanged: onPromoToggled, activeColor: AppColors.primary),
-                  const Text('Enable Promotion Price', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                ],
-              ),
-              if (hasPromo) ...[
-                const SizedBox(height: 8),
-                AppTextField(label: 'Promotion Price (RM)', hint: '2.80', controller: promoPriceCtrl,
-                  keyboardType: TextInputType.number),
               ],
-            ],
+            ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
     });
   }
 }
@@ -534,13 +659,13 @@ class _FormSection extends StatelessWidget {
 class _PreviewCard extends StatelessWidget {
   final String name, category;
   final int freshnessLevel;
-  final String price;
-  final String? promoPrice;
   final Uint8List? imageBytes;
   final String? existingImageUrl;
+  final String defaultPrice;
+  final String defaultPromo;
 
   const _PreviewCard({required this.name, required this.category, required this.freshnessLevel,
-    required this.price, this.promoPrice, this.imageBytes, this.existingImageUrl});
+    this.imageBytes, this.existingImageUrl, required this.defaultPrice, required this.defaultPromo});
 
   @override
   Widget build(BuildContext context) {
@@ -573,11 +698,11 @@ class _PreviewCard extends StatelessWidget {
           const SizedBox(height: 8),
           FreshnessBadge(level: freshnessLevel),
           const SizedBox(height: 10),
-          if (promoPrice != null && promoPrice!.isNotEmpty) ...[
-            Text('RM $price', style: const TextStyle(fontSize: 12, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),
-            Text('RM $promoPrice', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.primary)),
+          if (defaultPromo.isNotEmpty) ...[
+            Text('RM $defaultPrice', style: const TextStyle(fontSize: 12, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),
+            Text('RM $defaultPromo', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.primary)),
           ] else
-            Text('RM ${price.isEmpty ? '0.00' : price}',
+            Text('RM ${defaultPrice.isEmpty ? '0.00' : defaultPrice}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.primary)),
         ],
       ),

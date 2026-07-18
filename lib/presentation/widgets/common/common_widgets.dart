@@ -73,7 +73,7 @@ class StatusBadge extends StatelessWidget {
       case 'active': case 'delivered': case 'paid': case 'in stock': return AppColors.successLight;
       case 'pending': case 'scheduled': return AppColors.pendingLight;
       case 'confirmed': case 'loading': case 'partially paid': return AppColors.infoLight;
-      case 'packed': case 'in transit': case 'out for delivery': return Color(0xFFEDE7F6);
+      case 'packed': case 'in transit': case 'out for delivery': return const Color(0xFFEDE7F6);
       case 'cancelled': case 'failed': case 'inactive': case 'suspended':
       case 'out of stock': case 'overdue': return AppColors.dangerLight;
       case 'low stock': return AppColors.warningLight;
@@ -86,7 +86,7 @@ class StatusBadge extends StatelessWidget {
       case 'active': case 'delivered': case 'paid': case 'in stock': return AppColors.success;
       case 'pending': case 'scheduled': return AppColors.pending;
       case 'confirmed': case 'loading': case 'partially paid': return AppColors.info;
-      case 'packed': case 'in transit': case 'out for delivery': return Color(0xFF6A1B9A);
+      case 'packed': case 'in transit': case 'out for delivery': return const Color(0xFF6A1B9A);
       case 'cancelled': case 'failed': case 'inactive': case 'suspended':
       case 'out of stock': case 'overdue': return AppColors.danger;
       case 'low stock': return AppColors.warning;
@@ -248,7 +248,7 @@ class EmptyState extends StatelessWidget {
         children: [
           Container(
             width: 80, height: 80,
-            decoration: BoxDecoration(color: AppColors.mint, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: AppColors.mint, shape: BoxShape.circle),
             child: Icon(icon, size: 36, color: AppColors.primary),
           ),
           const SizedBox(height: 20),

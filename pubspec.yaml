@@ -60,11 +60,11 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo_cropped.jpeg"
+  image_path: "assets/images/logo.jpeg"
 
 flutter_native_splash:
   color: "#FFFFFF"
-  image: "assets/images/logo_cropped.jpeg"
+  image: "assets/images/logo.jpeg"
   android: true
   ios: true
   web: false

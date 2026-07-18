@@ -7,6 +7,7 @@ import 'package:stleaf_trading/data/models/product_model.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart';
+import 'package:stleaf_trading/presentation/screens/customer/products/product_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // Load products for all visitors — guests can browse without logging in
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProductProvider>().loadProducts();
     });
@@ -51,11 +53,11 @@ class _HeroBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(28),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         gradient: AppColors.heroGradient,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
@@ -64,30 +66,38 @@ class _HeroBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text('🌿 Fresh Daily Delivery', style: TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: const Text('🌿 Fresh Daily Delivery',
+                      style: TextStyle(color: AppColors.white, fontSize: 10, fontWeight: FontWeight.w600)),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
                 const Text(
-                  'Premium Fresh\nVegetables',
-                  style: TextStyle(color: AppColors.white, fontSize: 28, fontWeight: FontWeight.w800, height: 1.2),
+                  'Premium Fresh Vegetables',
+                  style: TextStyle(color: AppColors.white, fontSize: 17, fontWeight: FontWeight.w800, height: 1.2),
                 ),
-                const SizedBox(height: 8),
-                Text('Order today, deliver tomorrow', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 14)),
+                const SizedBox(height: 2),
+                Text('Order Today, Deliver Tomorrow',
+                    style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
               ],
             ),
           ),
           Container(
-            width: 80, height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+            width: 48, height: 48,
+            decoration: const BoxDecoration(
+              color: AppColors.white,
               shape: BoxShape.circle,
             ),
-            child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.asset('assets/images/logo.jpeg', width: 40, height: 40, fit: BoxFit.cover)),
+            padding: const EdgeInsets.all(4),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/logo.jpeg',
+                fit: BoxFit.contain
+              ),
+            ),
           ),
         ],
       ),
@@ -99,23 +109,87 @@ class _CategoryFilter extends StatelessWidget {
   final ProductProvider provider;
   const _CategoryFilter({required this.provider});
 
+  static const _sortOptions = [
+    ('itemCode', 'Item Code'),
+    ('name', 'Name'),
+    ('price', 'Price'),
+    ('stock', 'Stock'),
+    ('category', 'Category'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: TextField(
-            onChanged: provider.setSearch,
-            decoration: InputDecoration(
-              hintText: 'Search vegetables...',
-              prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
-              filled: true, fillColor: AppColors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  onChanged: provider.setSearch,
+                  decoration: InputDecoration(
+                    hintText: 'Search vegetables...',
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
+                    filled: true, fillColor: AppColors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Sort button
+              PopupMenuButton<String>(
+                tooltip: 'Sort products',
+                offset: const Offset(0, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                icon: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Icon(
+                    provider.sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                    color: AppColors.primary, size: 18,
+                  ),
+                ),
+                itemBuilder: (_) => _sortOptions.map(((String, String) opt) {
+                  final isActive = provider.sortField == opt.$1;
+                  return PopupMenuItem<String>(
+                    value: opt.$1,
+                    child: Row(
+                      children: [
+                        Icon(
+                          isActive
+                              ? (provider.sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded)
+                              : Icons.swap_vert_rounded,
+                          color: isActive ? AppColors.primary : AppColors.textMuted,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(opt.$2,
+                            style: TextStyle(
+                              color: isActive ? AppColors.primary : AppColors.textPrimary,
+                              fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                            )),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onSelected: (field) {
+                  // If same field, toggle direction; otherwise sort ascending
+                  if (provider.sortField == field) {
+                    provider.setSorting(field, !provider.sortAscending);
+                  } else {
+                    provider.setSorting(field, true);
+                  }
+                },
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
@@ -204,7 +278,12 @@ class _ProductCardState extends State<_ProductCard> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: (!p.isActive || p.isOutOfStock) ? null : () => context.go('/shop/products/${p.id}'),
+        onTap: (!p.isActive || p.isOutOfStock) ? null : () {
+          showDialog(
+            context: context,
+            builder: (_) => ProductDetailScreen(productId: p.id),
+          );
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
@@ -239,7 +318,7 @@ class _ProductCardState extends State<_ProductCard> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(6)),
                         child: Text(
-                          '${((1 - p.promotionPrice! / p.price) * 100).toStringAsFixed(0)}% OFF',
+                          '${((1 - p.defaultSize!.promotionPrice! / p.defaultSize!.price) * 100).toStringAsFixed(0)}% OFF',
                           style: const TextStyle(color: AppColors.white, fontSize: 9, fontWeight: FontWeight.w800),
                         ),
                       )),
@@ -276,16 +355,19 @@ class _ProductCardState extends State<_ProductCard> {
                       Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
                       const Spacer(),
                       if (p.hasPromotion)
-                        Text('RM ${p.price.toStringAsFixed(2)}',
+                        Text('RM ${p.defaultSize!.price.toStringAsFixed(2)}',
                           style: const TextStyle(fontSize: 10, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),
-                      Text('RM ${p.effectivePrice.toStringAsFixed(2)}',
+                      Text('${p.sizes.length > 1 ? 'From ' : ''}RM ${p.effectivePrice.toStringAsFixed(2)}',
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primary)),
                       const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: (!p.isActive || p.isOutOfStock) ? null : () {
-                            context.go('/shop/products/${p.id}');
+                            showDialog(
+                              context: context,
+                              builder: (_) => ProductDetailScreen(productId: p.id),
+                            );
                           },
                           icon: const Icon(Icons.add_shopping_cart_rounded, size: 14),
                           label: const Text('Add', style: TextStyle(fontSize: 12)),
