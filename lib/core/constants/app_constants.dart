@@ -28,9 +28,7 @@ class AppConstants {
 
   // Categories
   static const List<String> productCategories = [
-    'Fruits',
-    'Vegetables',
-    'Mushrooms',
+    'Vegetables/菜枼',
   ];
 
   // Unit types for product sizes

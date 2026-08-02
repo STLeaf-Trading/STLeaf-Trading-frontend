@@ -53,20 +53,33 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                   Text('${provider.allOrders.length} total orders',
                       style: const TextStyle(color: AppColors.textSecondary)),
                 ]),
-                Row(mainAxisSize: MainAxisSize.min, children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
                   // Cleanup button — deletes Cancelled orders older than 30 days
-                  AppButton(
-                    label: 'Cleanup Cancelled',
-                    icon: Icons.delete_sweep_rounded,
-                    isOutlined: true,
-                    isDanger: true,
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.delete_sweep_rounded, size: 16),
+                    label: const Text('Cleanup'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                      side: const BorderSide(color: AppColors.danger, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
                     onPressed: () => _showCleanupDialog(context),
                   ),
-                  const SizedBox(width: 12),
-                  AppButton(
-                    label: 'Print Pack List',
-                    icon: Icons.print_rounded,
-                    isOutlined: true,
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 16),
+                    label: const Text('Pack List'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
                     onPressed: () => _showPackListDialog(context, provider.allOrders),
                   ),
                 ]),

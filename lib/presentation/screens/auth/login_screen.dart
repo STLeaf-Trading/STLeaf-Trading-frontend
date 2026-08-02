@@ -13,7 +13,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
@@ -26,11 +27,14 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _fadeCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 800));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
-    _slideCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _slideCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
+        .animate(
+            CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
     _fadeCtrl.forward();
     _slideCtrl.forward();
   }
@@ -47,11 +51,15 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
-    final success = await auth.login(_emailCtrl.text.trim(), _passCtrl.text.trim());
+    final success =
+        await auth.login(_emailCtrl.text.trim(), _passCtrl.text.trim());
     if (mounted) {
       if (success) {
-        if (auth.isAdmin) context.go('/admin/dashboard');
-        else context.go('/shop');
+        if (auth.isAdmin) {
+          context.go('/admin/dashboard');
+        } else {
+          context.go('/shop');
+        }
       } else {
         if (auth.error != 'email_not_verified') {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -59,7 +67,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
               content: Text(auth.error ?? 'Login failed'),
               backgroundColor: AppColors.danger,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
@@ -73,19 +82,29 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     final isWide = MediaQuery.of(context).size.width > 768;
 
     return Scaffold(
-      body: isWide ? _WideLayout(
-        fade: _fadeAnim, slide: _slideAnim,
-        formKey: _formKey, emailCtrl: _emailCtrl, passCtrl: _passCtrl,
-        obscurePass: _obscurePass,
-        onTogglePass: () => setState(() => _obscurePass = !_obscurePass),
-        onLogin: _login, isLoading: auth.isLoading,
-      ) : _NarrowLayout(
-        fade: _fadeAnim, slide: _slideAnim,
-        formKey: _formKey, emailCtrl: _emailCtrl, passCtrl: _passCtrl,
-        obscurePass: _obscurePass,
-        onTogglePass: () => setState(() => _obscurePass = !_obscurePass),
-        onLogin: _login, isLoading: auth.isLoading,
-      ),
+      body: isWide
+          ? _WideLayout(
+              fade: _fadeAnim,
+              slide: _slideAnim,
+              formKey: _formKey,
+              emailCtrl: _emailCtrl,
+              passCtrl: _passCtrl,
+              obscurePass: _obscurePass,
+              onTogglePass: () => setState(() => _obscurePass = !_obscurePass),
+              onLogin: _login,
+              isLoading: auth.isLoading,
+            )
+          : _NarrowLayout(
+              fade: _fadeAnim,
+              slide: _slideAnim,
+              formKey: _formKey,
+              emailCtrl: _emailCtrl,
+              passCtrl: _passCtrl,
+              obscurePass: _obscurePass,
+              onTogglePass: () => setState(() => _obscurePass = !_obscurePass),
+              onLogin: _login,
+              isLoading: auth.isLoading,
+            ),
     );
   }
 }
@@ -99,9 +118,15 @@ class _WideLayout extends StatelessWidget {
   final VoidCallback onTogglePass, onLogin;
 
   const _WideLayout({
-    required this.fade, required this.slide, required this.formKey,
-    required this.emailCtrl, required this.passCtrl, required this.obscurePass,
-    required this.onTogglePass, required this.onLogin, required this.isLoading,
+    required this.fade,
+    required this.slide,
+    required this.formKey,
+    required this.emailCtrl,
+    required this.passCtrl,
+    required this.obscurePass,
+    required this.onTogglePass,
+    required this.onLogin,
+    required this.isLoading,
   });
 
   @override
@@ -126,25 +151,32 @@ class _WideLayout extends StatelessWidget {
                       height: 86,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.mint.withOpacity(0.5), width: 2),
+                        border: Border.all(
+                            color: AppColors.mint.withOpacity(0.5), width: 2),
                         color: AppColors.white,
                       ),
                       child: ClipOval(
                         child: Transform.scale(
                           scale: 1.4,
-                          child: Image.asset('assets/images/logo.jpeg', fit: BoxFit.cover),
+                          child: Image.asset('assets/images/logo.jpeg',
+                              fit: BoxFit.cover),
                         ),
                       ),
                     ),
                     const SizedBox(height: 40),
                     const Text(
                       'ST Leaf Trading',
-                      style: TextStyle(color: AppColors.white, fontSize: 38, fontWeight: FontWeight.w800, height: 1.1),
+                      style: TextStyle(
+                          color: AppColors.white,
+                          fontSize: 38,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Fresh from Farm to Table',
-                      style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 18),
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.75), fontSize: 18),
                     ),
                     const SizedBox(height: 48),
                     ...[
@@ -153,22 +185,29 @@ class _WideLayout extends StatelessWidget {
                       ('📦', 'Wholesale Pricing'),
                       ('📊', 'Real-time Inventory'),
                     ].map((e) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40, height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(child: Text(e.$1, style: const TextStyle(fontSize: 18))),
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Center(
+                                    child: Text(e.$1,
+                                        style: const TextStyle(fontSize: 18))),
+                              ),
+                              const SizedBox(width: 14),
+                              Text(e.$2,
+                                  style: TextStyle(
+                                      color: Colors.white.withOpacity(0.85),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500)),
+                            ],
                           ),
-                          const SizedBox(width: 14),
-                          Text(e.$2, style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 15, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    )),
+                        )),
                   ],
                 ),
               ),
@@ -179,10 +218,15 @@ class _WideLayout extends StatelessWidget {
         Expanded(
           flex: 4,
           child: _FormPanel(
-            fade: fade, slide: slide, formKey: formKey,
-            emailCtrl: emailCtrl, passCtrl: passCtrl,
-            obscurePass: obscurePass, onTogglePass: onTogglePass,
-            onLogin: onLogin, isLoading: isLoading,
+            fade: fade,
+            slide: slide,
+            formKey: formKey,
+            emailCtrl: emailCtrl,
+            passCtrl: passCtrl,
+            obscurePass: obscurePass,
+            onTogglePass: onTogglePass,
+            onLogin: onLogin,
+            isLoading: isLoading,
           ),
         ),
       ],
@@ -199,9 +243,15 @@ class _NarrowLayout extends StatelessWidget {
   final VoidCallback onTogglePass, onLogin;
 
   const _NarrowLayout({
-    required this.fade, required this.slide, required this.formKey,
-    required this.emailCtrl, required this.passCtrl, required this.obscurePass,
-    required this.onTogglePass, required this.onLogin, required this.isLoading,
+    required this.fade,
+    required this.slide,
+    required this.formKey,
+    required this.emailCtrl,
+    required this.passCtrl,
+    required this.obscurePass,
+    required this.onTogglePass,
+    required this.onLogin,
+    required this.isLoading,
   });
 
   @override
@@ -222,30 +272,42 @@ class _NarrowLayout extends StatelessWidget {
                     height: 96,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.white.withOpacity(0.5), width: 2),
+                      border: Border.all(
+                          color: AppColors.white.withOpacity(0.5), width: 2),
                       color: AppColors.white,
                     ),
                     child: ClipOval(
                       child: Transform.scale(
                         scale: 1.4,
-                        child: Image.asset('assets/images/logo.jpeg', fit: BoxFit.cover),
+                        child: Image.asset('assets/images/logo.jpeg',
+                            fit: BoxFit.cover),
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Text('ST Leaf Trading',
-                    style: TextStyle(color: AppColors.white, fontSize: 28, fontWeight: FontWeight.w800)),
+                      style: TextStyle(
+                          color: AppColors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800)),
                   const SizedBox(height: 8),
                   Text('Fresh from Farm to Table',
-                    style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 14)),
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.75), fontSize: 14)),
                 ],
               ),
             ),
             _FormPanel(
-              fade: fade, slide: slide, formKey: formKey,
-              emailCtrl: emailCtrl, passCtrl: passCtrl,
-              obscurePass: obscurePass, onTogglePass: onTogglePass,
-              onLogin: onLogin, isLoading: isLoading, isNarrow: true,
+              fade: fade,
+              slide: slide,
+              formKey: formKey,
+              emailCtrl: emailCtrl,
+              passCtrl: passCtrl,
+              obscurePass: obscurePass,
+              onTogglePass: onTogglePass,
+              onLogin: onLogin,
+              isLoading: isLoading,
+              isNarrow: true,
             ),
           ],
         ),
@@ -264,9 +326,15 @@ class _FormPanel extends StatelessWidget {
   final bool isNarrow;
 
   const _FormPanel({
-    required this.fade, required this.slide, required this.formKey,
-    required this.emailCtrl, required this.passCtrl, required this.obscurePass,
-    required this.onTogglePass, required this.onLogin, required this.isLoading,
+    required this.fade,
+    required this.slide,
+    required this.formKey,
+    required this.emailCtrl,
+    required this.passCtrl,
+    required this.obscurePass,
+    required this.onTogglePass,
+    required this.onLogin,
+    required this.isLoading,
     this.isNarrow = false,
   });
 
@@ -286,12 +354,15 @@ class _FormPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Welcome Back', style: Theme.of(context).textTheme.displaySmall),
+                  Text('Welcome Back',
+                      style: Theme.of(context).textTheme.displaySmall),
                   const SizedBox(height: 8),
-                  const Text('Sign in to your account', style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+                  const Text('Sign in to your account',
+                      style: TextStyle(
+                          color: AppColors.textSecondary, fontSize: 15)),
                   const SizedBox(height: 40),
-
-                  if (context.watch<AuthProvider>().error == 'email_not_verified') ...[
+                  if (context.watch<AuthProvider>().error ==
+                      'email_not_verified') ...[
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -302,17 +373,29 @@ class _FormPanel extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Email Not Verified', style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.w700)),
+                          const Text('Email Not Verified',
+                              style: TextStyle(
+                                  color: AppColors.warning,
+                                  fontWeight: FontWeight.w700)),
                           const SizedBox(height: 8),
-                          const Text('Please verify your email address before logging in.', style: TextStyle(fontSize: 13)),
+                          const Text(
+                              'Please verify your email address before logging in.',
+                              style: TextStyle(fontSize: 13)),
                           const SizedBox(height: 12),
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: () async {
-                                final res = await context.read<AuthProvider>().resendVerificationEmail(emailCtrl.text.trim(), passCtrl.text.trim());
+                                final res = await context
+                                    .read<AuthProvider>()
+                                    .resendVerificationEmail(
+                                        emailCtrl.text.trim(),
+                                        passCtrl.text.trim());
                                 if (context.mounted && res) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification email resent!')));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Verification email resent!')));
                                 }
                               },
                               style: ElevatedButton.styleFrom(
@@ -327,7 +410,6 @@ class _FormPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                   ],
-
                   AppTextField(
                     label: 'Email Address',
                     hint: 'admin@stleaf.com',
@@ -348,7 +430,11 @@ class _FormPanel extends StatelessWidget {
                     obscureText: obscurePass,
                     prefix: const Icon(Icons.lock_outline_rounded, size: 18),
                     suffix: IconButton(
-                      icon: Icon(obscurePass ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
+                      icon: Icon(
+                          obscurePass
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 18),
                       onPressed: onTogglePass,
                     ),
                     validator: (v) {
@@ -362,42 +448,59 @@ class _FormPanel extends StatelessWidget {
                     child: TextButton(
                       onPressed: () {
                         showDialog(
-                          context: context,
-                          builder: (ctx) {
-                            final resetEmailCtrl = TextEditingController(text: emailCtrl.text);
-                            return AlertDialog(
-                              title: const Text('Reset Password'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text('Enter your email address to receive a password reset link.'),
-                                  const SizedBox(height: 16),
-                                  AppTextField(label: 'Email', controller: resetEmailCtrl),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    if (resetEmailCtrl.text.isEmpty) return;
-                                    final res = await context.read<AuthProvider>().resetPassword(resetEmailCtrl.text.trim());
-                                    if (ctx.mounted) {
-                                      Navigator.of(ctx).pop();
-                                      if (res) {
-                                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Password reset email sent!')));
-                                      } else {
-                                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Failed to send reset email. Please try again.')));
-                                      }
-                                    }
-                                  },
-                                  child: const Text('Send Reset Link'),
+                            context: context,
+                            builder: (ctx) {
+                              final resetEmailCtrl =
+                                  TextEditingController(text: emailCtrl.text);
+                              return AlertDialog(
+                                title: const Text('Reset Password'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                        'Enter your email address to receive a password reset link.'),
+                                    const SizedBox(height: 16),
+                                    AppTextField(
+                                        label: 'Email',
+                                        controller: resetEmailCtrl),
+                                  ],
                                 ),
-                              ],
-                            );
-                          }
-                        );
+                                actions: [
+                                  TextButton(
+                                      onPressed: () => Navigator.of(ctx).pop(),
+                                      child: const Text('Cancel')),
+                                  ElevatedButton(
+                                    onPressed: () async {
+                                      if (resetEmailCtrl.text.isEmpty) return;
+                                      final res = await context
+                                          .read<AuthProvider>()
+                                          .resetPassword(
+                                              resetEmailCtrl.text.trim());
+                                      if (ctx.mounted) {
+                                        Navigator.of(ctx).pop();
+                                        if (res) {
+                                          ScaffoldMessenger.of(ctx)
+                                              .showSnackBar(const SnackBar(
+                                                  content: Text(
+                                                      'Password reset email sent!')));
+                                        } else {
+                                          ScaffoldMessenger.of(ctx)
+                                              .showSnackBar(const SnackBar(
+                                                  content: Text(
+                                                      'Failed to send reset email. Please try again.')));
+                                        }
+                                      }
+                                    },
+                                    child: const Text('Send Reset Link'),
+                                  ),
+                                ],
+                              );
+                            });
                       },
-                      child: const Text('Forgot Password?', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                      child: const Text('Forgot Password?',
+                          style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -417,11 +520,15 @@ class _FormPanel extends StatelessWidget {
                       child: RichText(
                         text: const TextSpan(
                           text: "Don't have an account? ",
-                          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                          style: TextStyle(
+                              color: AppColors.textSecondary, fontSize: 14),
                           children: [
-                            TextSpan(text: 'Register here', style: TextStyle(
-                              color: AppColors.primary, fontWeight: FontWeight.w700,
-                            )),
+                            TextSpan(
+                                text: 'Register here',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                )),
                           ],
                         ),
                       ),
@@ -434,12 +541,12 @@ class _FormPanel extends StatelessWidget {
                         onPressed: () => context.go('/shop'),
                         child: const Text(
                           'Continue browsing as guest →',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                          style: TextStyle(
+                              color: AppColors.textMuted, fontSize: 13),
                         ),
                       ),
                     ),
                   const SizedBox(height: 32),
-
                 ],
               ),
             ),
@@ -448,6 +555,4 @@ class _FormPanel extends StatelessWidget {
       ),
     );
   }
-
-
 }

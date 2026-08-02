@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/app_providers.dart';
 import 'routes/app_router.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -24,6 +25,7 @@ class AppInitializer extends StatefulWidget {
 class _AppInitializerState extends State<AppInitializer> {
   late Future<void> _initFuture;
   AuthProvider? _authProvider;
+  GoRouter? _router;
 
   @override
   void initState() {
@@ -50,6 +52,14 @@ class _AppInitializerState extends State<AppInitializer> {
     debugPrint("ST_DEBUG: Initializing AuthProvider...");
     _authProvider = AuthProvider();
     await _authProvider!.init();
+
+    // Resolve the startup route now that auth is known.
+    final initialLocation = await resolveInitialLocation(
+      _authProvider!.isAuthenticated,
+      _authProvider!.isAdmin,
+    );
+    _router = buildRouter(initialLocation);
+    debugPrint("ST_DEBUG: Initial location resolved to: $initialLocation");
   }
 
   @override
@@ -86,8 +96,9 @@ class _AppInitializerState extends State<AppInitializer> {
         ChangeNotifierProvider(create: (_) => DeliveryProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
             ChangeNotifierProvider(create: (_) => InstalmentProvider()),
+            ChangeNotifierProvider(create: (_) => CategoryProvider()),
           ],
-          child: const STLeafApp(),
+          child: STLeafApp(router: _router!),
         );
       },
     );
@@ -95,7 +106,8 @@ class _AppInitializerState extends State<AppInitializer> {
 }
 
 class STLeafApp extends StatefulWidget {
-  const STLeafApp({super.key});
+  final GoRouter router;
+  const STLeafApp({super.key, required this.router});
 
   @override
   State<STLeafApp> createState() => _STLeafAppState();
@@ -112,13 +124,15 @@ class _STLeafAppState extends State<STLeafApp> {
     final uid = auth.currentUser?.id;
     if (uid != null && uid != _lastLoadedUid) {
       _lastLoadedUid = uid;
-      // Load products first, then cart (only if customer)
+      // Load products, categories, then cart (customers only)
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         final products = context.read<ProductProvider>();
-        await products.loadProducts();
-        
-        
+        final categories = context.read<CategoryProvider>();
+        await Future.wait([
+          products.loadProducts(),
+          categories.loadCategories(),
+        ]);
         if (auth.isCustomer) {
           final cart = context.read<CartProvider>();
           await cart.loadCart(uid, products.allProducts);
@@ -137,7 +151,7 @@ class _STLeafAppState extends State<STLeafApp> {
       title: 'ST Leaf Trading',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      routerConfig: router,
+      routerConfig: widget.router,
     );
   }
 }

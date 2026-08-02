@@ -35,7 +35,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   void _updateQtyUI() {
-    _qtyCtrl.text = _quantity == _quantity.truncate() ? _quantity.toInt().toString() : _quantity.toStringAsFixed(2);
+    _qtyCtrl.text = _quantity == _quantity.truncate()
+        ? _quantity.toInt().toString()
+        : _quantity.toStringAsFixed(2);
   }
 
   void _increment(int maxStock) {
@@ -46,17 +48,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Max stock available: $maxStock'), backgroundColor: AppColors.warning, duration: const Duration(seconds: 1)),
+        SnackBar(
+            content: Text('Max stock available: $maxStock'),
+            backgroundColor: AppColors.warning,
+            duration: const Duration(seconds: 1)),
       );
     }
   }
 
-  void _decrement() => setState(() { 
-    if (_quantity > 1) {
-      _quantity--; 
-      _updateQtyUI();
-    }
-  });
+  void _decrement() => setState(() {
+        if (_quantity > 1) {
+          _quantity--;
+          _updateQtyUI();
+        }
+      });
 
   void _setQuantity(double val, int maxStock) {
     if (val > maxStock) {
@@ -65,7 +70,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _updateQtyUI();
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Max stock available: $maxStock'), backgroundColor: AppColors.warning, duration: const Duration(seconds: 1)),
+        SnackBar(
+            content: Text('Max stock available: $maxStock'),
+            backgroundColor: AppColors.warning,
+            duration: const Duration(seconds: 1)),
       );
     } else if (val > 0) {
       setState(() => _quantity = val);
@@ -77,24 +85,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final products = context.watch<ProductProvider>().allProducts;
     final cart = context.read<CartProvider>();
     final p = products.isNotEmpty
-        ? products.firstWhere((p) => p.id == widget.productId, orElse: () => products.first)
+        ? products.firstWhere((p) => p.id == widget.productId,
+            orElse: () => products.first)
         : null;
 
     if (p == null) {
-      return CustomerLayout(currentRoute: '/shop', child: const LoadingWidget());
+      return const CustomerLayout(
+          currentRoute: '/shop', child: LoadingWidget());
     }
 
     void addToCart() {
       try {
         final size = _selectedSize ?? p.defaultSize;
-        if (size == null) throw Exception('No size available for this product.');
-        
-        cart.addToCart(p, size, quantity: _quantity, remarks: _remarksController.text.trim());
+        if (size == null)
+          throw Exception('No size available for this product.');
+
+        cart.addToCart(p, size,
+            quantity: _quantity, remarks: _remarksController.text.trim());
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('${p.name} (${size.unit}) x$_quantity added to cart!'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           duration: const Duration(seconds: 1),
         ));
         Future.delayed(const Duration(milliseconds: 800), () {
@@ -105,7 +118,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           content: Text(e.toString().replaceAll('Exception: ', '')),
           backgroundColor: AppColors.danger,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           duration: const Duration(seconds: 2),
         ));
       }
@@ -136,45 +150,50 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: LayoutBuilder(
                   builder: (ctx, constraints) {
                     final isWide = constraints.maxWidth > 700;
-            if (isWide) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _ProductImage(product: p)),
-                  const SizedBox(width: 32),
-                  Expanded(child: _ProductInfo(
-                    product: p, 
-                    selectedSize: _selectedSize ?? p.defaultSize,
-                    onSizeChange: (s) => setState(() => _selectedSize = s),
-                    quantity: _quantity,
-                    qtyCtrl: _qtyCtrl,
-                    onIncrease: () => _increment(p.stockQuantity),
-                    onDecrease: _decrement,
-                    onQuantityChange: (val) => _setQuantity(val, p.stockQuantity),
-                    onAddToCart: addToCart,
-                    remarksController: _remarksController,
-                  )),
-                ],
-              );
-            }
-            return Column(
-              children: [
-                _ProductImage(product: p),
-                const SizedBox(height: 20),
-                _ProductInfo(
-                  product: p, 
-                  selectedSize: _selectedSize ?? p.defaultSize,
-                  onSizeChange: (s) => setState(() => _selectedSize = s),
-                  quantity: _quantity,
-                  qtyCtrl: _qtyCtrl,
-                  onIncrease: () => _increment(p.stockQuantity),
-                  onDecrease: _decrement,
-                  onQuantityChange: (val) => _setQuantity(val, p.stockQuantity),
-                  onAddToCart: addToCart,
-                  remarksController: _remarksController,
-                ),
-              ],
-            );
+                    if (isWide) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _ProductImage(product: p)),
+                          const SizedBox(width: 32),
+                          Expanded(
+                              child: _ProductInfo(
+                            product: p,
+                            selectedSize: _selectedSize ?? p.defaultSize,
+                            onSizeChange: (s) =>
+                                setState(() => _selectedSize = s),
+                            quantity: _quantity,
+                            qtyCtrl: _qtyCtrl,
+                            onIncrease: () => _increment(p.stockQuantity),
+                            onDecrease: _decrement,
+                            onQuantityChange: (val) =>
+                                _setQuantity(val, p.stockQuantity),
+                            onAddToCart: addToCart,
+                            remarksController: _remarksController,
+                          )),
+                        ],
+                      );
+                    }
+                    return Column(
+                      children: [
+                        _ProductImage(product: p),
+                        const SizedBox(height: 20),
+                        _ProductInfo(
+                          product: p,
+                          selectedSize: _selectedSize ?? p.defaultSize,
+                          onSizeChange: (s) =>
+                              setState(() => _selectedSize = s),
+                          quantity: _quantity,
+                          qtyCtrl: _qtyCtrl,
+                          onIncrease: () => _increment(p.stockQuantity),
+                          onDecrease: _decrement,
+                          onQuantityChange: (val) =>
+                              _setQuantity(val, p.stockQuantity),
+                          onAddToCart: addToCart,
+                          remarksController: _remarksController,
+                        ),
+                      ],
+                    );
                   },
                 ),
               ),
@@ -210,7 +229,8 @@ class _ProductImage extends StatelessWidget {
                     top: 0,
                     right: 0,
                     child: IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+                      icon: const Icon(Icons.close_rounded,
+                          color: Colors.white, size: 30),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
@@ -225,25 +245,35 @@ class _ProductImage extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.mint,
           borderRadius: BorderRadius.circular(20),
-          image: product.imageUrl != null ? DecorationImage(
-            image: NetworkImage(product.imageUrl!), fit: BoxFit.cover
-          ) : null,
+          image: product.imageUrl != null
+              ? DecorationImage(
+                  image: NetworkImage(product.imageUrl!), fit: BoxFit.cover)
+              : null,
         ),
         child: Stack(
-        children: [
-          if (product.imageUrl == null)
-            Center(child: Icon(Icons.eco_rounded, size: 120, color: AppColors.primary.withOpacity(0.25))),
-          if (product.hasPromotion)
-            Positioned(top: 16, left: 16, child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(8)),
-              child: Text(
-                '${((1 - product.defaultSize!.promotionPrice! / product.defaultSize!.price) * 100).toStringAsFixed(0)}% OFF',
-                style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800),
-              ),
-            )),
-        ],
-      ),
+          children: [
+            if (product.imageUrl == null)
+              Center(
+                  child: Icon(Icons.eco_rounded,
+                      size: 120, color: AppColors.primary.withOpacity(0.25))),
+            if (product.hasPromotion)
+              Positioned(
+                  top: 16,
+                  left: 16,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: AppColors.danger,
+                        borderRadius: BorderRadius.circular(8)),
+                    child: Text(
+                      '${((1 - product.defaultSize!.promotionPrice! / product.defaultSize!.price) * 100).toStringAsFixed(0)}% OFF',
+                      style: const TextStyle(
+                          color: AppColors.white, fontWeight: FontWeight.w800),
+                    ),
+                  )),
+          ],
+        ),
       ),
     );
   }
@@ -260,12 +290,12 @@ class _ProductInfo extends StatelessWidget {
   final TextEditingController remarksController;
 
   const _ProductInfo({
-    required this.product, 
+    required this.product,
     required this.selectedSize,
     required this.onSizeChange,
     required this.quantity,
     required this.qtyCtrl,
-    required this.onIncrease, 
+    required this.onIncrease,
     required this.onDecrease,
     required this.onQuantityChange,
     required this.onAddToCart,
@@ -281,28 +311,44 @@ class _ProductInfo extends StatelessWidget {
         Row(children: [
           FreshnessBadge(level: p.freshnessLevel),
           const SizedBox(width: 8),
-          StatusBadge(status: p.isOutOfStock ? 'Out of Stock' : p.isLowStock ? 'Low Stock' : 'In Stock'),
+          StatusBadge(
+              status: p.isOutOfStock
+                  ? 'Out of Stock'
+                  : p.isLowStock
+                      ? 'Low Stock'
+                      : 'In Stock'),
         ]),
         const SizedBox(height: 12),
         Text(p.name, style: Theme.of(context).textTheme.displaySmall),
         const SizedBox(height: 4),
-        Text(p.category, style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
+        Text(p.category,
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
         const SizedBox(height: 16),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           if (selectedSize != null) ...[
             Text('RM ${selectedSize!.effectivePrice.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary)),
             const SizedBox(width: 8),
-            if (selectedSize!.hasPromotion) Text('RM ${selectedSize!.price.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 16, color: AppColors.textMuted, decoration: TextDecoration.lineThrough)),
+            if (selectedSize!.hasPromotion)
+              Text('RM ${selectedSize!.price.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      fontSize: 16,
+                      color: AppColors.textMuted,
+                      decoration: TextDecoration.lineThrough)),
             const Spacer(),
-            Text('/${selectedSize!.unit}', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            Text('/${selectedSize!.unit}',
+                style:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 13)),
           ],
         ]),
         const SizedBox(height: 20),
 
         if (p.sizes.isNotEmpty) ...[
-          const Text('Size / Unit', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const Text('Size / Unit',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -310,11 +356,15 @@ class _ProductInfo extends StatelessWidget {
             children: p.sizes.map((s) {
               final isSelected = selectedSize == s;
               return ChoiceChip(
-                label: Text(s.unit, style: TextStyle(color: isSelected ? AppColors.white : AppColors.primary)),
+                label: Text(s.unit,
+                    style: TextStyle(
+                        color:
+                            isSelected ? AppColors.white : AppColors.primary)),
                 selected: isSelected,
                 selectedColor: AppColors.primary,
                 backgroundColor: AppColors.mint,
-                side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
+                side: BorderSide(
+                    color: isSelected ? AppColors.primary : AppColors.border),
                 onSelected: (_) => onSizeChange(s),
               );
             }).toList(),
@@ -325,39 +375,55 @@ class _ProductInfo extends StatelessWidget {
         // Description
         AppCard(
           color: AppColors.mint,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Row(children: [
-              Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
+              Icon(Icons.info_outline_rounded,
+                  size: 16, color: AppColors.primary),
               SizedBox(width: 6),
-              Text('Product Description', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              Text('Product Description',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary)),
             ]),
             const SizedBox(height: 8),
-            Text(p.description, style: const TextStyle(fontSize: 14, height: 1.5)),
+            Text(p.description,
+                style: const TextStyle(fontSize: 14, height: 1.5)),
           ]),
         ),
         const SizedBox(height: 12),
-        if (p.precaution.isNotEmpty) AppCard(
-          color: AppColors.warningLight,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Row(children: [
-              Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.warning),
-              SizedBox(width: 6),
-              Text('Precaution & Storage', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.warning)),
+        if (p.precaution.isNotEmpty)
+          AppCard(
+            color: AppColors.warningLight,
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Icon(Icons.warning_amber_rounded,
+                    size: 16, color: AppColors.warning),
+                SizedBox(width: 6),
+                Text('Precaution & Storage',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.warning)),
+              ]),
+              const SizedBox(height: 8),
+              Text(p.precaution,
+                  style: const TextStyle(fontSize: 13, height: 1.5)),
             ]),
-            const SizedBox(height: 8),
-            Text(p.precaution, style: const TextStyle(fontSize: 13, height: 1.5)),
-          ]),
-        ),
+          ),
         const SizedBox(height: 24),
 
         // Qty selector
         LayoutBuilder(builder: (context, constraints) {
           final isNarrow = constraints.maxWidth < 350;
-          
+
           Widget qtySelector = Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Quantity:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const Text('Quantity:',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(width: 16),
               Container(
                 decoration: BoxDecoration(
@@ -368,15 +434,18 @@ class _ProductInfo extends StatelessWidget {
                   IconButton(
                     onPressed: onDecrease,
                     icon: const Icon(Icons.remove_rounded),
-                    style: IconButton.styleFrom(foregroundColor: AppColors.primary),
+                    style: IconButton.styleFrom(
+                        foregroundColor: AppColors.primary),
                   ),
                   SizedBox(
                     width: 100,
                     child: TextField(
                       controller: qtyCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w800),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         isDense: true,
@@ -386,7 +455,9 @@ class _ProductInfo extends StatelessWidget {
                         if (parsed != null && parsed > 0) {
                           onQuantityChange(parsed);
                         } else {
-                          qtyCtrl.text = quantity == quantity.truncate() ? quantity.toInt().toString() : quantity.toStringAsFixed(2);
+                          qtyCtrl.text = quantity == quantity.truncate()
+                              ? quantity.toInt().toString()
+                              : quantity.toStringAsFixed(2);
                         }
                       },
                       onTapOutside: (_) {
@@ -394,7 +465,9 @@ class _ProductInfo extends StatelessWidget {
                         if (parsed != null && parsed > 0) {
                           onQuantityChange(parsed);
                         } else {
-                          qtyCtrl.text = quantity == quantity.truncate() ? quantity.toInt().toString() : quantity.toStringAsFixed(2);
+                          qtyCtrl.text = quantity == quantity.truncate()
+                              ? quantity.toInt().toString()
+                              : quantity.toStringAsFixed(2);
                         }
                       },
                     ),
@@ -402,18 +475,22 @@ class _ProductInfo extends StatelessWidget {
                   IconButton(
                     onPressed: onIncrease,
                     icon: const Icon(Icons.add_rounded),
-                    style: IconButton.styleFrom(foregroundColor: AppColors.primary),
+                    style: IconButton.styleFrom(
+                        foregroundColor: AppColors.primary),
                   ),
                 ]),
               ),
             ],
           );
-          
+
           final currentSize = selectedSize ?? p.defaultSize;
           final currentPrice = currentSize?.effectivePrice ?? p.effectivePrice;
           Widget totalText = Text(
             'Total: RM ${(currentPrice * quantity).toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary),
+            style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary),
           );
 
           if (isNarrow) {
@@ -438,27 +515,34 @@ class _ProductInfo extends StatelessWidget {
         const SizedBox(height: 16),
 
         // Remarks
-        const Text('Additional Notes (Optional):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        const Text('Additional Notes (Optional):',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         TextField(
           controller: remarksController,
           maxLines: 2,
           decoration: InputDecoration(
             hintText: 'E.g., Please pick the ripest ones...',
-            hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+            hintStyle:
+                const TextStyle(fontSize: 13, color: AppColors.textMuted),
             filled: true,
             fillColor: AppColors.surface,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.all(12),
           ),
         ),
         const SizedBox(height: 24),
 
         Row(children: [
-          Expanded(child: AppButton(
+          Expanded(
+              child: AppButton(
             label: 'Add to Cart',
             icon: Icons.shopping_basket_rounded,
-            onPressed: (!product.isActive || product.isOutOfStock) ? null : onAddToCart,
+            onPressed: (!product.isActive || product.isOutOfStock)
+                ? null
+                : onAddToCart,
             width: double.infinity,
           )),
           const SizedBox(width: 12),

@@ -331,15 +331,21 @@ class _ExportWizardDialogState extends State<ExportWizardDialog> {
               ),
               if (_filterByCustomer) ...[
                 const SizedBox(height: 8),
-                DropdownButtonFormField<CustomerModel>(
-                  initialValue: _selectedCustomer,
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedCustomer?.id,
                   hint: const Text('Choose a customer...'),
                   decoration: InputDecoration(
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
-                  items: customers.map((c) => DropdownMenuItem(value: c, child: Text(c.companyName))).toList(),
-                  onChanged: (v) => setState(() => _selectedCustomer = v),
+                  items: customers.map((c) => DropdownMenuItem(value: c.id, child: Text(c.companyName))).toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _selectedCustomer = customers.firstWhere((c) => c.id == v);
+                      });
+                    }
+                  },
                 ),
               ],
               const Divider(height: 32),

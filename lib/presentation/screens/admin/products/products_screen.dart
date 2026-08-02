@@ -31,7 +31,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
       currentRoute: '/admin/products',
       child: Column(
         children: [
-          _ProductsHeader(onAdd: () => context.go('/admin/products/new')),
+          _ProductsHeader(
+            onAdd: () => context.go('/admin/products/new'),
+            onManageCategories: () => _showCategoryManager(context),
+          ),
           _FilterRow(provider: provider),
           Expanded(
             child: provider.isLoading
@@ -53,11 +56,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ),
     );
   }
+
+  void _showCategoryManager(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _CategoryManagerSheet(),
+    );
+  }
 }
 
 class _ProductsHeader extends StatelessWidget {
   final VoidCallback onAdd;
-  const _ProductsHeader({required this.onAdd});
+  final VoidCallback onManageCategories;
+  const _ProductsHeader({required this.onAdd, required this.onManageCategories});
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +80,8 @@ class _ProductsHeader extends StatelessWidget {
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
-        runSpacing: 16,
+        runSpacing: 12,
+        spacing: 8,
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,8 +90,295 @@ class _ProductsHeader extends StatelessWidget {
               const Text('Manage your product catalog', style: TextStyle(color: AppColors.textSecondary)),
             ],
           ),
-          AppButton(label: 'Add Product', icon: Icons.add_rounded, onPressed: onAdd),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            OutlinedButton.icon(
+              icon: const Icon(Icons.category_rounded, size: 16),
+              label: const Text('Categories'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              onPressed: onManageCategories,
+            ),
+            AppButton(label: 'Add Product', icon: Icons.add_rounded, onPressed: onAdd),
+          ]),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Category Manager Bottom Sheet ────────────────────────────────────────────
+class _CategoryManagerSheet extends StatefulWidget {
+  const _CategoryManagerSheet();
+  @override
+  State<_CategoryManagerSheet> createState() => _CategoryManagerSheetState();
+}
+
+class _CategoryManagerSheetState extends State<_CategoryManagerSheet> {
+  final _addCtrl = TextEditingController();
+  String? _editingCategory; // category currently being renamed
+  final _editCtrl = TextEditingController();
+  bool _isBusy = false;
+
+  @override
+  void dispose() {
+    _addCtrl.dispose();
+    _editCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    final name = _addCtrl.text.trim();
+    if (name.isEmpty) return;
+    setState(() => _isBusy = true);
+    await context.read<CategoryProvider>().addCategory(name);
+    _addCtrl.clear();
+    setState(() => _isBusy = false);
+  }
+
+  Future<void> _rename(String oldName) async {
+    final newName = _editCtrl.text.trim();
+    if (newName.isEmpty || newName == oldName) {
+      setState(() => _editingCategory = null);
+      return;
+    }
+    setState(() => _isBusy = true);
+    await context.read<CategoryProvider>().renameCategory(oldName, newName);
+    setState(() { _isBusy = false; _editingCategory = null; });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Renamed "$oldName" → "$newName" and updated all products'),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    }
+  }
+
+  Future<void> _delete(BuildContext ctx, String name) async {
+    // Confirm first
+    final confirmed = await showDialog<bool>(
+      context: ctx,
+      builder: (dCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Category'),
+        content: Text(
+          'Delete "$name"?\n\nAll products in this category will be moved to "Uncategorised".',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dCtx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dCtx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isBusy = true);
+    final count = await context.read<CategoryProvider>().deleteCategory(name);
+    setState(() => _isBusy = false);
+
+    if (!mounted) return;
+    if (count > 0) {
+      await showDialog(
+        context: context,
+        builder: (dCtx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(children: const [
+            Icon(Icons.info_outline_rounded, color: AppColors.warning),
+            SizedBox(width: 10),
+            Text('Products Moved'),
+          ]),
+          content: Text(
+            '$count product${count == 1 ? '' : 's'} '
+            'had the "$name" category and '
+            '${count == 1 ? 'has' : 'have'} been moved to "Uncategorised".\n\n'
+            'Please reassign them to the correct category.',
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dCtx),
+              child: const Text('OK, Got It'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catProvider = context.watch<CategoryProvider>();
+    final prodProvider = context.watch<ProductProvider>();
+    
+    // Merge managed categories and any currently used in products
+    final Set<String> merged = {};
+    merged.addAll(catProvider.categories);
+    merged.addAll(prodProvider.dynamicCategories.where((c) => c != 'All'));
+    final categories = merged.toList()..sort();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            const SizedBox(height: 12),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 16),
+
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.category_rounded, color: AppColors.primary, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Manage Categories', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                      Text('Edit, rename or remove product categories', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    ]),
+                  ),
+                  if (_isBusy) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+
+            // Category list
+            Expanded(
+              child: categories.isEmpty && !catProvider.isLoading
+                  ? const Center(child: Text('No categories yet', style: TextStyle(color: AppColors.textMuted)))
+                  : ListView.separated(
+                      controller: controller,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: categories.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final cat = categories[i];
+                        final isEditing = _editingCategory == cat;
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(8)),
+                            child: const Icon(Icons.label_rounded, color: AppColors.primary, size: 18),
+                          ),
+                          title: isEditing
+                              ? TextField(
+                                  controller: _editCtrl,
+                                  autofocus: true,
+                                  style: const TextStyle(fontSize: 14),
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                                    ),
+                                  ),
+                                  onSubmitted: (_) => _rename(cat),
+                                )
+                              : Text(cat, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          trailing: isEditing
+                              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.check_rounded, color: AppColors.success, size: 20),
+                                    onPressed: () => _rename(cat),
+                                    tooltip: 'Save rename',
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close_rounded, color: AppColors.textMuted, size: 20),
+                                    onPressed: () => setState(() => _editingCategory = null),
+                                    tooltip: 'Cancel',
+                                  ),
+                                ])
+                              : Row(mainAxisSize: MainAxisSize.min, children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_rounded, color: AppColors.primary, size: 20),
+                                    onPressed: () => setState(() {
+                                      _editingCategory = cat;
+                                      _editCtrl.text = cat;
+                                    }),
+                                    tooltip: 'Rename',
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 20),
+                                    onPressed: _isBusy ? null : () => _delete(ctx, cat),
+                                    tooltip: 'Delete',
+                                  ),
+                                ]),
+                        );
+                      },
+                    ),
+            ),
+
+            // Add new category input
+            const Divider(height: 1),
+            Padding(
+              padding: EdgeInsets.only(
+                left: 16, right: 16, top: 12,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _addCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        hintText: 'New category name...',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                        ),
+                      ),
+                      onSubmitted: (_) => _add(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Add'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                    ),
+                    onPressed: _isBusy ? null : _add,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -125,10 +426,14 @@ class _FilterRow extends StatelessWidget {
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: provider.selectedCategory,
+                value: provider.dynamicCategories.contains(provider.selectedCategory)
+                    ? provider.selectedCategory
+                    : (provider.dynamicCategories.isNotEmpty ? provider.dynamicCategories.first : null),
                 items: provider.dynamicCategories.map((c) =>
                   DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 14)))).toList(),
-                onChanged: (v) => provider.setCategory(v!),
+                onChanged: (v) {
+                  if (v != null) provider.setCategory(v);
+                },
               ),
             ),
           ),

@@ -1,0 +1,170 @@
+workflows:
+
+  # ─────────────────────────────────────────────
+  # iOS Workflow — builds & ships to TestFlight
+  # ─────────────────────────────────────────────
+  ios-workflow:
+    name: STLeaf Trading — iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m2   # macOS M2 — supports iOS builds
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+      vars:
+        BUNDLE_ID: "com.stleaf.trading"
+
+      # iOS code signing — configure via Codemagic > App Settings > iOS code signing
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.stleaf.trading
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - ios/Pods
+
+    scripts:
+      - name: Create iOS folder if missing
+        script: |
+          if [ ! -d "ios" ]; then
+            flutter create --platforms=ios .
+          fi
+
+      - name: Reconstruct .env from Codemagic secrets
+        script: |
+          cat > "$CM_BUILD_DIR/.env" <<EOF
+          FIREBASE_WEB_API_KEY=$FIREBASE_WEB_API_KEY
+          FIREBASE_WEB_APP_ID=$FIREBASE_WEB_APP_ID
+          FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID
+          FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
+          FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN
+          FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET
+          FIREBASE_ANDROID_API_KEY=$FIREBASE_ANDROID_API_KEY
+          FIREBASE_ANDROID_APP_ID=$FIREBASE_ANDROID_APP_ID
+          FIREBASE_IOS_API_KEY=$FIREBASE_IOS_API_KEY
+          FIREBASE_IOS_APP_ID=$FIREBASE_IOS_APP_ID
+          FIREBASE_IOS_BUNDLE_ID=$BUNDLE_ID
+          EOF
+
+      - name: Add GoogleService-Info.plist
+        script: |
+          echo $GOOGLE_SERVICE_INFO_PLIST | base64 --decode > \
+            "$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist"
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Install CocoaPods
+        script: |
+          cd ios && pod install
+        working_directory: $CM_BUILD_DIR
+
+      - name: Generate icons and splash screen
+        script: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+
+      - name: Build iOS IPA
+        script: |
+          flutter build ipa --release
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      # TestFlight — requires App Store Connect API key integration in Codemagic
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers
+
+      email:
+        recipients:
+          - stleafadmin@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  # ─────────────────────────────────────────────
+  # Android Workflow — builds & ships to Play Store
+  # ─────────────────────────────────────────────
+  android-workflow:
+    name: STLeaf Trading — Android
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      flutter: stable
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - ~/.gradle/caches
+
+    scripts:
+      - name: Reconstruct .env from Codemagic secrets
+        script: |
+          cat > "$CM_BUILD_DIR/.env" <<EOF
+          FIREBASE_WEB_API_KEY=$FIREBASE_WEB_API_KEY
+          FIREBASE_WEB_APP_ID=$FIREBASE_WEB_APP_ID
+          FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID
+          FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
+          FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN
+          FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET
+          FIREBASE_ANDROID_API_KEY=$FIREBASE_ANDROID_API_KEY
+          FIREBASE_ANDROID_APP_ID=$FIREBASE_ANDROID_APP_ID
+          FIREBASE_IOS_API_KEY=$FIREBASE_IOS_API_KEY
+          FIREBASE_IOS_APP_ID=$FIREBASE_IOS_APP_ID
+          FIREBASE_IOS_BUNDLE_ID=com.stleaf.trading
+          EOF
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Generate icons and splash screen
+        script: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+
+      - name: Build Android App Bundle
+        script: |
+          flutter build appbundle --release
+
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+      - build/app/outputs/apk/release/*.apk
+
+    publishing:
+      # Google Play — requires service account JSON set up in Codemagic
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
+
+      email:
+        recipients:
+          - stleafadmin@gmail.com
+        notify:
+          success: true
+          failure: true

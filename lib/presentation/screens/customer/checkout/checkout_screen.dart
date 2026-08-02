@@ -12,7 +12,6 @@ import 'package:stleaf_trading/providers/auth_provider.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart';
 
-
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -39,7 +38,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final uid = context.read<AuthProvider>().currentUser?.id;
     if (uid != null) {
       try {
-        final doc = await FirebaseFirestore.instance.collection('customers').doc(uid).get();
+        final doc = await FirebaseFirestore.instance
+            .collection('customers')
+            .doc(uid)
+            .get();
         if (mounted) {
           final address = doc.data()?['address'] as String? ?? '';
           _dbAddress = address;
@@ -65,7 +67,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = context.read<CartProvider>();
 
     // Delivery fee is determined by admin later
-    final double actualDeliveryFee = 0.0;
+    const double actualDeliveryFee = 0.0;
     final double actualTotalAmount = cart.subtotal;
 
     // MOQ check — only for delivery
@@ -79,7 +81,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'A minimum order of RM ${AppConstants.minOrderForDelivery.toStringAsFixed(0)} is required for delivery. '
             'Please add more items or switch to self-pickup.',
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
+          ],
         ),
       );
       return;
@@ -93,7 +98,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     String finalAddress = '';
     if (_deliveryMethod == 'Deliver by Company') {
       final uid = auth.currentUser?.id;
-      if (uid == null) { setState(() => _isPlacing = false); return; }
+      if (uid == null) {
+        setState(() => _isPlacing = false);
+        return;
+      }
 
       finalAddress = _addressCtrl.text.trim();
       if (finalAddress.isEmpty) {
@@ -103,7 +111,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           builder: (ctx) => AlertDialog(
             title: const Text('Address Required'),
             content: const Text('Please enter a delivery address to proceed.'),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
+            ],
           ),
         );
         setState(() => _isPlacing = false);
@@ -116,27 +127,46 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Update Profile Address?'),
-            content: const Text('You have entered a different delivery address. Would you like to save this new address to your profile for future orders?'),
+            content: const Text(
+                'You have entered a different delivery address. Would you like to save this new address to your profile for future orders?'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No, Just for this order')),
-              AppButton(label: 'Yes, Update Profile', onPressed: () => Navigator.pop(ctx, true)),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('No, Just for this order')),
+              AppButton(
+                  label: 'Yes, Update Profile',
+                  onPressed: () => Navigator.pop(ctx, true)),
             ],
           ),
         );
-        if (shouldUpdate == null) { setState(() => _isPlacing = false); return; }
+        if (shouldUpdate == null) {
+          setState(() => _isPlacing = false);
+          return;
+        }
         if (shouldUpdate) {
           try {
-            await FirebaseFirestore.instance.collection('customers').doc(uid).update({'address': finalAddress});
-          } catch (e) { debugPrint('Failed to update address: $e'); }
+            await FirebaseFirestore.instance
+                .collection('customers')
+                .doc(uid)
+                .update({'address': finalAddress});
+          } catch (e) {
+            debugPrint('Failed to update address: $e');
+          }
         }
       } else if (_dbAddress.isEmpty && finalAddress.isNotEmpty) {
         try {
-          await FirebaseFirestore.instance.collection('customers').doc(uid).update({'address': finalAddress});
-        } catch (e) { debugPrint('Failed to update address: $e'); }
+          await FirebaseFirestore.instance
+              .collection('customers')
+              .doc(uid)
+              .update({'address': finalAddress});
+        } catch (e) {
+          debugPrint('Failed to update address: $e');
+        }
       }
     }
 
-    final orderId = 'ORD-${DateFormat('yyyyMMdd').format(DateTime.now())}-${DateTime.now().millisecondsSinceEpoch % 1000}';
+    final orderId =
+        'ORD-${DateFormat('yyyyMMdd').format(DateTime.now())}-${DateTime.now().millisecondsSinceEpoch % 1000}';
     final order = OrderModel(
       id: const Uuid().v4(),
       orderId: orderId,
@@ -151,18 +181,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       paymentStatus: 'Pending',
       orderStatus: 'Pending',
       deliveryAddress: _deliveryMethod == 'Pickup' ? 'Pickup' : finalAddress,
-      customerComment: _commentCtrl.text.trim().isEmpty ? null : _commentCtrl.text.trim(),
-      items: cart.items.map((i) => OrderItemModel(
-        productId: i.product.id,
-        productName: i.product.name,
-        itemCode: i.product.itemCode,
-        packType: i.selectedSize.unit,
-        product: i.product,
-        quantity: i.quantity,
-        price: i.selectedSize.effectivePrice,
-        subtotal: i.subtotal,
-        remarks: i.remarks,
-      )).toList(),
+      customerComment:
+          _commentCtrl.text.trim().isEmpty ? null : _commentCtrl.text.trim(),
+      items: cart.items
+          .map((i) => OrderItemModel(
+                productId: i.product.id,
+                productName: i.product.name,
+                itemCode: i.product.itemCode,
+                packType: i.selectedSize.unit,
+                product: i.product,
+                quantity: i.quantity,
+                price: i.selectedSize.effectivePrice,
+                subtotal: i.subtotal,
+                remarks: i.remarks,
+              ))
+          .toList(),
     );
 
     OrderModel? placedOrder;
@@ -172,7 +205,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (mounted) {
         setState(() => _isPlacing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: AppColors.danger),
+          SnackBar(
+              content: Text(e.toString().replaceAll('Exception: ', '')),
+              backgroundColor: AppColors.danger),
         );
       }
       return;
@@ -188,19 +223,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 72, height: 72,
-                decoration: const BoxDecoration(color: AppColors.successLight, shape: BoxShape.circle),
-                child: const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 40),
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                    color: AppColors.successLight, shape: BoxShape.circle),
+                child: const Icon(Icons.check_circle_rounded,
+                    color: AppColors.success, size: 40),
               ),
               const SizedBox(height: 20),
-              Text('Order Received!', style: Theme.of(ctx).textTheme.headlineMedium),
+              Text('Order Received!',
+                  style: Theme.of(ctx).textTheme.headlineMedium),
               const SizedBox(height: 8),
-              Text(orderId, style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
+              Text(orderId,
+                  style: const TextStyle(
+                      color: AppColors.textMuted, fontSize: 14)),
               const SizedBox(height: 8),
               const Text(
                 'Your order has been submitted.\nPlease wait for admin confirmation before making payment.',
@@ -212,7 +254,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 label: 'View My Orders',
                 icon: Icons.local_shipping_rounded,
                 width: double.infinity,
-                onPressed: () { Navigator.pop(ctx); context.go('/shop/orders'); },
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.go('/shop/orders');
+                },
               ),
             ],
           ),
@@ -224,7 +269,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
-    final double actualDeliveryFee = 0.0;
+    const double actualDeliveryFee = 0.0;
     final double actualTotalAmount = cart.subtotal;
     final bool belowMoq = _deliveryMethod == 'Deliver by Company' &&
         cart.subtotal < AppConstants.minOrderForDelivery;
@@ -239,7 +284,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             final content = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Checkout', style: Theme.of(context).textTheme.displaySmall),
+                Text('Checkout',
+                    style: Theme.of(context).textTheme.displaySmall),
                 const SizedBox(height: 20),
                 _deliveryInfoCard(context),
                 const SizedBox(height: 16),
@@ -250,15 +296,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.warningLight,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+                      border:
+                          Border.all(color: AppColors.warning.withOpacity(0.4)),
                     ),
                     child: Row(children: [
-                      const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
+                      const Icon(Icons.warning_amber_rounded,
+                          color: AppColors.warning, size: 20),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(
+                      Expanded(
+                          child: Text(
                         'Minimum RM ${AppConstants.minOrderForDelivery.toStringAsFixed(0)} required for delivery. '
                         'Switch to Pickup to proceed with current cart.',
-                        style: const TextStyle(color: AppColors.warning, fontSize: 13, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            color: AppColors.warning,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600),
                       )),
                     ]),
                   ),
@@ -282,13 +334,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             );
 
             if (isWide) {
-              return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(flex: 3, child: content),
-                const SizedBox(width: 24),
-                SizedBox(width: 300, child: summary),
-              ]);
+              return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 3, child: content),
+                    const SizedBox(width: 24),
+                    SizedBox(width: 300, child: summary),
+                  ]);
             }
-            return Column(children: [content, const SizedBox(height: 16), summary]);
+            return Column(
+                children: [content, const SizedBox(height: 16), summary]);
           },
         ),
       ),
@@ -300,33 +355,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return AppCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Row(children: [
-          Icon(Icons.local_shipping_rounded, color: AppColors.primary, size: 20),
+          Icon(Icons.local_shipping_rounded,
+              color: AppColors.primary, size: 20),
           SizedBox(width: 8),
-          Text('Delivery Information', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
+          Text('Delivery Information',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary)),
         ]),
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: RadioListTile<String>(
-            value: 'Pickup', groupValue: _deliveryMethod,
+          Expanded(
+              child: RadioListTile<String>(
+            value: 'Pickup',
+            groupValue: _deliveryMethod,
             onChanged: (v) => setState(() => _deliveryMethod = v!),
             activeColor: AppColors.primary,
-            title: const Text('Pickup', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            title: const Text('Pickup',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             tileColor: _deliveryMethod == 'Pickup' ? AppColors.mint : null,
           )),
           const SizedBox(width: 10),
-          Expanded(child: RadioListTile<String>(
-            value: 'Deliver by Company', groupValue: _deliveryMethod,
+          Expanded(
+              child: RadioListTile<String>(
+            value: 'Deliver by Company',
+            groupValue: _deliveryMethod,
             onChanged: (v) => setState(() => _deliveryMethod = v!),
             activeColor: AppColors.primary,
-            title: const Text('Deliver by Company', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            tileColor: _deliveryMethod == 'Deliver by Company' ? AppColors.mint : null,
+            title: const Text('Deliver by Company',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            tileColor:
+                _deliveryMethod == 'Deliver by Company' ? AppColors.mint : null,
           )),
         ]),
         if (_deliveryMethod == 'Deliver by Company') ...[
           const SizedBox(height: 16),
-          const Text('Delivery Address', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
+          const Text('Delivery Address',
+              style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: AppColors.textSecondary)),
           const SizedBox(height: 8),
           if (_isLoadingAddress)
             const CircularProgressIndicator()
@@ -336,28 +409,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               maxLines: 2,
               decoration: InputDecoration(
                 hintText: 'Enter your full delivery address',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.border)),
                 contentPadding: const EdgeInsets.all(12),
               ),
             ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+                color: AppColors.mint, borderRadius: BorderRadius.circular(10)),
             child: const Row(children: [
-              Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
+              Icon(Icons.info_outline_rounded,
+                  size: 16, color: AppColors.primary),
               SizedBox(width: 8),
-              Expanded(child: Text(
-                'Orders placed before 6 PM will be delivered the next morning.',
-                style: TextStyle(fontSize: 13, color: AppColors.primary))),
+              Expanded(
+                  child: Text(
+                      'Orders placed before 6 PM will be delivered the next morning.',
+                      style:
+                          TextStyle(fontSize: 13, color: AppColors.primary))),
             ]),
           ),
         ],
         const SizedBox(height: 14),
-        Text('Recipient: ${auth.currentUser?.name ?? ""}', style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text('Recipient: ${auth.currentUser?.name ?? ""}',
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text('${_deliveryMethod == 'Pickup' ? 'Pickup' : 'Delivery'}: Tomorrow morning',
-          style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+        Text(
+            '${_deliveryMethod == 'Pickup' ? 'Pickup' : 'Delivery'}: Tomorrow morning',
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
       ]),
     );
   }
@@ -368,24 +449,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         const Row(children: [
           Icon(Icons.payment_rounded, color: AppColors.primary, size: 20),
           SizedBox(width: 8),
-          Text('Payment Method', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
+          Text('Payment Method',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary)),
         ]),
         const SizedBox(height: 16),
         ...AppConstants.paymentMethods.map((method) {
           IconData icon = Icons.storefront_rounded;
-          if (method.contains('TNG') || method.contains('Touch')) icon = Icons.nfc_rounded;
-          if (method.contains('Maybank') || method.contains('Transfer')) icon = Icons.account_balance_rounded;
+          if (method.contains('TNG') || method.contains('Touch'))
+            icon = Icons.nfc_rounded;
+          if (method.contains('Maybank') || method.contains('Transfer'))
+            icon = Icons.account_balance_rounded;
 
           return RadioListTile<String>(
-            value: method, groupValue: _paymentMethod,
+            value: method,
+            groupValue: _paymentMethod,
             onChanged: (v) => setState(() => _paymentMethod = v!),
             activeColor: AppColors.primary,
             title: Row(children: [
               Icon(icon, size: 18, color: AppColors.textSecondary),
               const SizedBox(width: 10),
-              Text(method, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              Text(method,
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w500)),
             ]),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             tileColor: _paymentMethod == method ? AppColors.mint : null,
           );
         }),
@@ -397,20 +488,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return AppCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Order Items (${cart.items.length})',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
+            style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary)),
         const SizedBox(height: 12),
         ...cart.items.map((item) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(children: [
-            const Icon(Icons.eco_rounded, color: AppColors.primary, size: 16),
-            const SizedBox(width: 10),
-            Expanded(child: Text(
-              '${item.product.name} × ${item.quantity == item.quantity.truncate() ? item.quantity.toInt() : item.quantity.toStringAsFixed(2)} ${item.product.packType}',
-              style: const TextStyle(fontSize: 14))),
-            Text('RM ${item.subtotal.toStringAsFixed(2)}',
-              style: const TextStyle(fontWeight: FontWeight.w700)),
-          ]),
-        )),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(children: [
+                const Icon(Icons.eco_rounded,
+                    color: AppColors.primary, size: 16),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: Text(
+                        '${item.product.name} × ${item.quantity == item.quantity.truncate() ? item.quantity.toInt() : item.quantity.toStringAsFixed(2)} ${item.product.packType}',
+                        style: const TextStyle(fontSize: 14))),
+                Text('RM ${item.subtotal.toStringAsFixed(2)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ]),
+            )),
       ]),
     );
   }
@@ -419,9 +515,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return AppCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Row(children: [
-          Icon(Icons.chat_bubble_outline_rounded, color: AppColors.primary, size: 20),
+          Icon(Icons.chat_bubble_outline_rounded,
+              color: AppColors.primary, size: 20),
           SizedBox(width: 8),
-          Text('Order Notes (Optional)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary)),
+          Text('Order Notes (Optional)',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary)),
         ]),
         const SizedBox(height: 12),
         TextField(
@@ -429,8 +530,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           maxLines: 3,
           maxLength: 300,
           decoration: InputDecoration(
-            hintText: 'Any special instructions, delivery notes, or comments for the admin...',
-            hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+            hintText:
+                'Any special instructions, delivery notes, or comments for the admin...',
+            hintStyle:
+                const TextStyle(fontSize: 13, color: AppColors.textMuted),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -468,7 +571,8 @@ class _OrderSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Order Summary', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        const Text('Order Summary',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         const SizedBox(height: 16),
         _row('Subtotal', 'RM ${cart.subtotal.toStringAsFixed(2)}'),
         const SizedBox(height: 8),
@@ -479,21 +583,28 @@ class _OrderSummary extends StatelessWidget {
         _row('Payment', paymentMethod),
         const Divider(height: 24),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Preview Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          const Text('Preview Total',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           Text('RM ${totalAmount.toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primary)),
+              style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary)),
         ]),
         const SizedBox(height: 20),
         AppButton(
           label: belowMoq ? 'Min. RM 100 for Delivery' : 'Place Order',
-          icon: belowMoq ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
+          icon: belowMoq
+              ? Icons.warning_amber_rounded
+              : Icons.check_circle_rounded,
           isLoading: isPlacing,
           width: double.infinity,
           onPressed: (cart.isEmpty || belowMoq) ? null : onPlace,
         ),
         const SizedBox(height: 12),
         AppButton(
-          label: 'Back to Cart', isOutlined: true,
+          label: 'Back to Cart',
+          isOutlined: true,
           width: double.infinity,
           onPressed: () => context.go('/shop/cart'),
         ),

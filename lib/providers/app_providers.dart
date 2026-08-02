@@ -13,7 +13,8 @@ import '../core/constants/app_constants.dart';
 // PRODUCT PROVIDER
 class ProductProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
-  ProductProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  ProductProvider({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
   List<ProductModel> _products = [];
   bool _isLoading = false;
   String _searchQuery = '';
@@ -32,19 +33,21 @@ class ProductProvider extends ChangeNotifier {
   bool get sortAscending => _sortAscending;
 
   List<String> get dynamicCategories {
-    final Set<String> cats = {'All'};
-    cats.addAll(AppConstants.productCategories);
+    // Build from live product data — reflects renames/deletes immediately
+    final Set<String> cats = {};
     for (var p in _products) {
       if (p.category.isNotEmpty) cats.add(p.category);
     }
-    // Remove legacy mock categories so they don't pollute the filter
-    cats.removeAll({'Leafy Greens', 'Root Vegetables', 'Herbs'});
-    return cats.toList();
+    // Remove legacy mock categories and any 'All' category from products
+    cats.removeAll({'Leafy Greens', 'Root Vegetables', 'Herbs', 'All'});
+    final sorted = cats.toList()..sort();
+    return ['All', ...sorted];
   }
 
   List<ProductModel> get _filtered {
     final filtered = _products.where((p) {
-      final matchesCategory = _selectedCategory == 'All' || p.category == _selectedCategory;
+      final matchesCategory =
+          _selectedCategory == 'All' || p.category == _selectedCategory;
       final matchesSearch = _searchQuery.isEmpty ||
           p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           p.itemCode.toLowerCase().contains(_searchQuery.toLowerCase());
@@ -89,7 +92,8 @@ class ProductProvider extends ChangeNotifier {
     notifyListeners();
     _sub?.cancel();
     _sub = _db.collection('products').snapshots().listen((snap) {
-      _products = snap.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
+      _products =
+          snap.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
       _isLoading = false;
       notifyListeners();
     });
@@ -118,10 +122,12 @@ class ProductProvider extends ChangeNotifier {
   }
 
   bool isItemCodeUnique(String code, String? excludeId) {
-    return !_products.any((p) => p.itemCode.toLowerCase() == code.toLowerCase() && p.id != excludeId);
+    return !_products.any((p) =>
+        p.itemCode.toLowerCase() == code.toLowerCase() && p.id != excludeId);
   }
 
-  Future<String?> uploadProductImage(Uint8List fileBytes, String fileName) async {
+  Future<String?> uploadProductImage(
+      Uint8List fileBytes, String fileName) async {
     try {
       final ref = FirebaseStorage.instance.ref().child('products/$fileName');
       final metadata = SettableMetadata(contentType: 'image/jpeg');
@@ -133,8 +139,9 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
-  List<ProductModel> get lowStockProducts => _products.where((p) => p.isLowStock).toList();
-  
+  List<ProductModel> get lowStockProducts =>
+      _products.where((p) => p.isLowStock).toList();
+
   @override
   void dispose() {
     _sub?.cancel();
@@ -148,13 +155,18 @@ class CartItem {
   final ProductSizeModel selectedSize;
   double quantity;
   final String? remarks;
-  CartItem({required this.product, required this.selectedSize, required this.quantity, this.remarks});
+  CartItem(
+      {required this.product,
+      required this.selectedSize,
+      required this.quantity,
+      this.remarks});
   double get subtotal => selectedSize.effectivePrice * quantity;
 }
 
 class CartProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
-  CartProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  CartProvider({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
   final List<CartItem> _items = [];
   String? _uid;
 
@@ -190,7 +202,8 @@ class CartProvider extends ChangeNotifier {
             precaution: '',
             sizes: [
               ProductSizeModel(
-                unit: sizeUnit.isNotEmpty ? sizeUnit : (raw['packType'] ?? 'kg'),
+                unit:
+                    sizeUnit.isNotEmpty ? sizeUnit : (raw['packType'] ?? 'kg'),
                 price: (raw['price'] as num?)?.toDouble() ?? 0,
                 promotionPrice: null,
               )
@@ -202,17 +215,28 @@ class CartProvider extends ChangeNotifier {
             status: 'Active',
           ),
         );
-        
+
         final size = product.sizes.firstWhere(
           (s) => s.unit == sizeUnit,
-          orElse: () => product.sizes.isNotEmpty ? product.sizes.first : ProductSizeModel(unit: sizeUnit, price: (raw['price'] as num?)?.toDouble() ?? 0),
+          orElse: () => product.sizes.isNotEmpty
+              ? product.sizes.first
+              : ProductSizeModel(
+                  unit: sizeUnit,
+                  price: (raw['price'] as num?)?.toDouble() ?? 0),
         );
 
-        final idx = _items.indexWhere((i) => i.product.id == productId && i.selectedSize.unit == size.unit && i.remarks == remarks);
+        final idx = _items.indexWhere((i) =>
+            i.product.id == productId &&
+            i.selectedSize.unit == size.unit &&
+            i.remarks == remarks);
         if (idx != -1) {
           _items[idx].quantity += quantity;
         } else {
-          _items.add(CartItem(product: product, selectedSize: size, quantity: quantity, remarks: remarks));
+          _items.add(CartItem(
+              product: product,
+              selectedSize: size,
+              quantity: quantity,
+              remarks: remarks));
         }
       }
       notifyListeners();
@@ -224,51 +248,69 @@ class CartProvider extends ChangeNotifier {
   Future<void> _saveCart() async {
     if (_uid == null) return;
     try {
-      final itemsJson = _items.map((i) => {
-        'productId': i.product.id,
-        'productName': i.product.name,
-        'itemCode': i.product.itemCode,
-        'sizeUnit': i.selectedSize.unit,
-        'price': i.selectedSize.effectivePrice,
-        'imageUrl': i.product.imageUrl,
-        'quantity': i.quantity,
-        if (i.remarks != null && i.remarks!.isNotEmpty) 'remarks': i.remarks,
-      }).toList();
-      await _db.collection('carts').doc(_uid).set({'items': itemsJson, 'updatedAt': FieldValue.serverTimestamp()});
+      final itemsJson = _items
+          .map((i) => {
+                'productId': i.product.id,
+                'productName': i.product.name,
+                'itemCode': i.product.itemCode,
+                'sizeUnit': i.selectedSize.unit,
+                'price': i.selectedSize.effectivePrice,
+                'imageUrl': i.product.imageUrl,
+                'quantity': i.quantity,
+                if (i.remarks != null && i.remarks!.isNotEmpty)
+                  'remarks': i.remarks,
+              })
+          .toList();
+      await _db
+          .collection('carts')
+          .doc(_uid)
+          .set({'items': itemsJson, 'updatedAt': FieldValue.serverTimestamp()});
     } catch (e) {
       debugPrint('CartProvider._saveCart error: $e');
     }
   }
 
-  void addToCart(ProductModel product, ProductSizeModel size, {double quantity = 1.0, String? remarks}) {
+  void addToCart(ProductModel product, ProductSizeModel size,
+      {double quantity = 1.0, String? remarks}) {
     if (!product.isActive || product.isOutOfStock) {
       throw Exception('This product is currently unavailable.');
     }
 
-    final idx = _items.indexWhere((i) => i.product.id == product.id && i.selectedSize.unit == size.unit && i.remarks == remarks);
+    final idx = _items.indexWhere((i) =>
+        i.product.id == product.id &&
+        i.selectedSize.unit == size.unit &&
+        i.remarks == remarks);
     if (idx != -1) {
       if (_items[idx].quantity + quantity > product.stockQuantity) {
-        throw Exception('Cannot add more. Max stock available: ${product.stockQuantity}');
+        throw Exception(
+            'Cannot add more. Max stock available: ${product.stockQuantity}');
       }
       _items[idx].quantity += quantity;
     } else {
       if (quantity > product.stockQuantity) {
-        throw Exception('Cannot add more. Max stock available: ${product.stockQuantity}');
+        throw Exception(
+            'Cannot add more. Max stock available: ${product.stockQuantity}');
       }
-      _items.add(CartItem(product: product, selectedSize: size, quantity: quantity, remarks: remarks));
+      _items.add(CartItem(
+          product: product,
+          selectedSize: size,
+          quantity: quantity,
+          remarks: remarks));
     }
     notifyListeners();
     _saveCart();
   }
 
   void updateQuantity(String productId, String sizeUnit, double qty) {
-    final idx = _items.indexWhere((i) => i.product.id == productId && i.selectedSize.unit == sizeUnit);
+    final idx = _items.indexWhere(
+        (i) => i.product.id == productId && i.selectedSize.unit == sizeUnit);
     if (idx != -1) {
       if (qty <= 0) {
         _items.removeAt(idx);
       } else {
         if (qty > _items[idx].product.stockQuantity) {
-          throw Exception('Max stock available: ${_items[idx].product.stockQuantity}');
+          throw Exception(
+              'Max stock available: ${_items[idx].product.stockQuantity}');
         }
         _items[idx].quantity = qty;
       }
@@ -278,7 +320,8 @@ class CartProvider extends ChangeNotifier {
   }
 
   void removeItem(String productId, String sizeUnit) {
-    _items.removeWhere((i) => i.product.id == productId && i.selectedSize.unit == sizeUnit);
+    _items.removeWhere(
+        (i) => i.product.id == productId && i.selectedSize.unit == sizeUnit);
     notifyListeners();
     _saveCart();
   }
@@ -307,7 +350,8 @@ class CartProvider extends ChangeNotifier {
 // ORDER PROVIDER
 class OrderProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
-  OrderProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  OrderProvider({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
   List<OrderModel> _orders = [];
   bool _isLoading = false;
   String _statusFilter = 'All';
@@ -321,7 +365,8 @@ class OrderProvider extends ChangeNotifier {
     return _orders.where((o) {
       if (o.orderStatus == 'Delivered') {
         // Hide if more than 1 day has passed since scheduled delivery date
-        final endOfDeliveryDay = DateTime(o.deliveryDate.year, o.deliveryDate.month, o.deliveryDate.day, 23, 59, 59);
+        final endOfDeliveryDay = DateTime(o.deliveryDate.year,
+            o.deliveryDate.month, o.deliveryDate.day, 23, 59, 59);
         if (now.isAfter(endOfDeliveryDay.add(const Duration(days: 1)))) {
           return false;
         }
@@ -334,19 +379,20 @@ class OrderProvider extends ChangeNotifier {
     if (_statusFilter == 'All') return _visibleOrders;
     return _visibleOrders.where((o) => o.orderStatus == _statusFilter).toList();
   }
-  
+
   List<OrderModel> get allOrders => _visibleOrders;
 
   Future<void> loadOrders({String? customerId}) async {
     _isLoading = true;
     notifyListeners();
     _sub?.cancel();
-    
-    Query query = _db.collection('orders').orderBy('createdAt', descending: true);
+
+    Query query =
+        _db.collection('orders').orderBy('createdAt', descending: true);
     if (customerId != null) {
       query = query.where('customerId', isEqualTo: customerId);
     }
-    
+
     _sub = query.snapshots().listen((snap) {
       _orders = snap.docs.map((doc) => OrderModel.fromFirestore(doc)).toList();
       _isLoading = false;
@@ -363,22 +409,25 @@ class OrderProvider extends ChangeNotifier {
     // 1. Validate stock availability before proceeding
     for (final item in order.items) {
       final pDoc = await _db.collection('products').doc(item.productId).get();
-      if (!pDoc.exists) throw Exception('Product ${item.productName} no longer exists.');
+      if (!pDoc.exists)
+        throw Exception('Product ${item.productName} no longer exists.');
       final pData = pDoc.data()!;
       final currentStock = (pData['stockQuantity'] ?? 0) as int;
       final status = pData['status'] as String? ?? 'Active';
       if (status == 'Inactive') {
-        throw Exception('Product ${item.productName} is currently unavailable.');
+        throw Exception(
+            'Product ${item.productName} is currently unavailable.');
       }
       if (currentStock < item.quantity.toInt()) {
-        throw Exception('Insufficient stock for ${item.productName}. Only $currentStock available.');
+        throw Exception(
+            'Insufficient stock for ${item.productName}. Only $currentStock available.');
       }
     }
 
     final Map<String, dynamic> data = order.toJson();
     data['createdAt'] = FieldValue.serverTimestamp();
     final docRef = await _db.collection('orders').add(data);
-    
+
     // 2. Decrement stock
     final batch = _db.batch();
     for (final item in order.items) {
@@ -410,12 +459,16 @@ class OrderProvider extends ChangeNotifier {
     await _db.collection('orders').doc(orderId).update({'orderStatus': status});
   }
 
-  Future<void> updateOrderFields(String orderId, Map<String, dynamic> fields) async {
+  Future<void> updateOrderFields(
+      String orderId, Map<String, dynamic> fields) async {
     await _db.collection('orders').doc(orderId).update(fields);
   }
 
   Future<void> updatePaymentStatus(String orderId, String status) async {
-    await _db.collection('orders').doc(orderId).update({'paymentStatus': status});
+    await _db
+        .collection('orders')
+        .doc(orderId)
+        .update({'paymentStatus': status});
   }
 
   Future<void> cancelOrder(String orderId, String reason) async {
@@ -452,7 +505,7 @@ class OrderProvider extends ChangeNotifier {
     final allDocs = <String, QueryDocumentSnapshot>{};
     for (final doc in [...snap1.docs, ...snap2.docs]) {
       // Double-check cancelledAt is absent or old enough
-      final data = doc.data() as Map<String, dynamic>;
+      final data = doc.data();
       final cancelledAt = data['cancelledAt'] as Timestamp?;
       if (cancelledAt != null && cancelledAt.compareTo(cutoffTs) >= 0) {
         // cancelledAt is recent — skip
@@ -467,7 +520,8 @@ class OrderProvider extends ChangeNotifier {
     int deleted = 0;
     final docList = allDocs.values.toList();
     for (int i = 0; i < docList.length; i += 500) {
-      final chunk = docList.sublist(i, i + 500 > docList.length ? docList.length : i + 500);
+      final chunk = docList.sublist(
+          i, i + 500 > docList.length ? docList.length : i + 500);
       final batch = _db.batch();
       for (final doc in chunk) {
         batch.delete(doc.reference);
@@ -488,7 +542,8 @@ class OrderProvider extends ChangeNotifier {
 // CUSTOMER PROVIDER
 class CustomerProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
-  CustomerProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  CustomerProvider({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
   List<CustomerModel> _customers = [];
   bool _isLoading = false;
   String _searchQuery = '';
@@ -499,11 +554,12 @@ class CustomerProvider extends ChangeNotifier {
 
   List<CustomerModel> get _filtered {
     if (_searchQuery.isEmpty) return _customers;
-    return _customers.where((c) =>
-      c.companyName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-      c.customerCode.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-      c.contactPerson.toLowerCase().contains(_searchQuery.toLowerCase())
-    ).toList();
+    return _customers
+        .where((c) =>
+            c.companyName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            c.customerCode.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            c.contactPerson.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
   }
 
   Future<void> loadCustomers() async {
@@ -511,7 +567,8 @@ class CustomerProvider extends ChangeNotifier {
     notifyListeners();
     _sub?.cancel();
     _sub = _db.collection('customers').snapshots().listen((snap) {
-      _customers = snap.docs.map((doc) => CustomerModel.fromFirestore(doc)).toList();
+      _customers =
+          snap.docs.map((doc) => CustomerModel.fromFirestore(doc)).toList();
       _isLoading = false;
       notifyListeners();
     });
@@ -558,7 +615,7 @@ class CustomerProvider extends ChangeNotifier {
       'creditHistory': customer.creditHistory,
     });
   }
-  
+
   @override
   void dispose() {
     _sub?.cancel();
@@ -569,15 +626,18 @@ class CustomerProvider extends ChangeNotifier {
 // INVENTORY PROVIDER
 class InventoryProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
-  InventoryProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  InventoryProvider({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
   List<InventoryModel> _inventory = [];
   bool _isLoading = false;
   StreamSubscription? _sub;
 
   List<InventoryModel> get inventory => _inventory;
   bool get isLoading => _isLoading;
-  List<InventoryModel> get lowStock => _inventory.where((i) => i.isLowStock).toList();
-  List<InventoryModel> get outOfStock => _inventory.where((i) => i.isOutOfStock).toList();
+  List<InventoryModel> get lowStock =>
+      _inventory.where((i) => i.isLowStock).toList();
+  List<InventoryModel> get outOfStock =>
+      _inventory.where((i) => i.isOutOfStock).toList();
 
   Future<void> loadInventory() async {
     _isLoading = true;
@@ -604,9 +664,12 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   Future<void> updateStock(String id, int newStock) async {
-    await _db.collection('products').doc(id).update({'stockQuantity': newStock});
+    await _db
+        .collection('products')
+        .doc(id)
+        .update({'stockQuantity': newStock});
   }
-  
+
   @override
   void dispose() {
     _sub?.cancel();
@@ -617,7 +680,8 @@ class InventoryProvider extends ChangeNotifier {
 // DELIVERY PROVIDER
 class DeliveryProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
-  DeliveryProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  DeliveryProvider({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
   List<OrderModel> _deliveries = [];
   bool _isLoading = false;
   StreamSubscription? _sub;
@@ -629,16 +693,24 @@ class DeliveryProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     _sub?.cancel();
-    _sub = _db.collection('orders')
-        .where('orderStatus', whereIn: ['Pending', 'Confirmed', 'Packed', 'Out For Delivery', 'Delivered'])
-        .snapshots().listen((snap) {
-      _deliveries = snap.docs
-          .where((doc) => ((doc.data())['deliveryFee'] ?? 0) > 0)
-          .map((doc) => OrderModel.fromFirestore(doc))
-          .toList();
-      _isLoading = false;
-      notifyListeners();
-    });
+    _sub = _db
+        .collection('orders')
+        .where('orderStatus', whereIn: [
+          'Pending',
+          'Confirmed',
+          'Packed',
+          'Out For Delivery',
+          'Delivered'
+        ])
+        .snapshots()
+        .listen((snap) {
+          _deliveries = snap.docs
+              .where((doc) => ((doc.data())['deliveryFee'] ?? 0) > 0)
+              .map((doc) => OrderModel.fromFirestore(doc))
+              .toList();
+          _isLoading = false;
+          notifyListeners();
+        });
   }
 
   Future<void> updateStatus(String id, String status) async {
@@ -648,7 +720,7 @@ class DeliveryProvider extends ChangeNotifier {
       debugPrint('Error updating delivery status: $e');
     }
   }
-  
+
   @override
   void dispose() {
     _sub?.cancel();
@@ -659,7 +731,8 @@ class DeliveryProvider extends ChangeNotifier {
 // DASHBOARD PROVIDER
 class DashboardProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
-  DashboardProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  DashboardProvider({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
   DashboardStats? _stats;
   bool _isLoading = false;
 
@@ -680,28 +753,40 @@ class DashboardProvider extends ChangeNotifier {
       // concurrently, reducing total load time significantly on iOS/mobile.
       final results = await Future.wait([
         // [0] Today's orders
-        _db.collection('orders')
-            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-            .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+        _db
+            .collection('orders')
+            .where('createdAt',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+            .where('createdAt',
+                isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
             .get(),
         // [1] Pending orders count
-        _db.collection('orders').where('orderStatus', isEqualTo: 'Pending').get(),
+        _db
+            .collection('orders')
+            .where('orderStatus', isEqualTo: 'Pending')
+            .get(),
         // [2] Pending deliveries count
-        _db.collection('orders').where('orderStatus', isEqualTo: 'Out For Delivery').get(),
+        _db
+            .collection('orders')
+            .where('orderStatus', isEqualTo: 'Out For Delivery')
+            .get(),
         // [3] All products (for low-stock + top-products)
         _db.collection('products').get(),
         // [4] Active instalments (for outstanding debts)
-        _db.collection('instalments').where('status', isEqualTo: 'Active').get(),
+        _db
+            .collection('instalments')
+            .where('status', isEqualTo: 'Active')
+            .get(),
         // [5] All orders — used for revenue trend, top products, top customers
         _db.collection('orders').get(),
       ]);
 
-      final todayOrdersSnap     = results[0];
-      final pendingOrdersSnap   = results[1];
-      final pendingDelivSnap    = results[2];
-      final allProductsSnap     = results[3];
-      final instalmentsSnap     = results[4];
-      final allOrdersSnap       = results[5];
+      final todayOrdersSnap = results[0];
+      final pendingOrdersSnap = results[1];
+      final pendingDelivSnap = results[2];
+      final allProductsSnap = results[3];
+      final instalmentsSnap = results[4];
+      final allOrdersSnap = results[5];
 
       // Today stats
       int todayOrdersCount = 0;
@@ -740,7 +825,8 @@ class DashboardProvider extends ChangeNotifier {
         if (ts == null) continue;
         final day = ts.toDate();
         final key = DateFormat('yyyy-MM-dd').format(day);
-        dayRevenueMap[key] = (dayRevenueMap[key] ?? 0) + (data['totalAmount'] ?? 0).toDouble();
+        dayRevenueMap[key] =
+            (dayRevenueMap[key] ?? 0) + (data['totalAmount'] ?? 0).toDouble();
       }
 
       final List<RevenuePoint> revenueData = [];
@@ -770,11 +856,12 @@ class DashboardProvider extends ChangeNotifier {
         final items = data['items'] as List<dynamic>? ?? [];
         for (var item in items) {
           final productId = item['productId'] as String?;
-          final name = (item['productName'] as String?)
-              ?? (productId != null ? productNames[productId] : null)
-              ?? 'Unknown';
+          final name = (item['productName'] as String?) ??
+              (productId != null ? productNames[productId] : null) ??
+              'Unknown';
           final qty = ((item['quantity'] ?? 0) as num).toDouble();
-          final rev = ((item['subtotal'] ?? item['price'] ?? 0) as num).toDouble();
+          final rev =
+              ((item['subtotal'] ?? item['price'] ?? 0) as num).toDouble();
           productStats[name] = _ProductStat(
             name: name,
             quantity: (productStats[name]?.quantity ?? 0) + qty,
@@ -805,10 +892,16 @@ class DashboardProvider extends ChangeNotifier {
         lowStockProducts: lowStockCount,
         outstandingDebts: outstandingDebts,
         revenueData: revenueData,
-        topProducts: sortedProducts.take(5).map<TopProduct>((p) =>
-            TopProduct(name: p.name, quantity: p.quantity, revenue: p.revenue)).toList(),
-        topCustomers: sortedCustomers.take(5).map<TopCustomer>((c) =>
-            TopCustomer(name: c.name, orders: c.orders, totalSpent: c.totalSpent)).toList(),
+        topProducts: sortedProducts
+            .take(5)
+            .map<TopProduct>((p) => TopProduct(
+                name: p.name, quantity: p.quantity, revenue: p.revenue))
+            .toList(),
+        topCustomers: sortedCustomers
+            .take(5)
+            .map<TopCustomer>((c) => TopCustomer(
+                name: c.name, orders: c.orders, totalSpent: c.totalSpent))
+            .toList(),
       );
     } catch (e) {
       debugPrint('Error loading dashboard stats: $e');
@@ -823,20 +916,23 @@ class _ProductStat {
   final String name;
   final double quantity;
   final double revenue;
-  _ProductStat({required this.name, required this.quantity, required this.revenue});
+  _ProductStat(
+      {required this.name, required this.quantity, required this.revenue});
 }
 
 class _CustomerStat {
   final String name;
   final int orders;
   final double totalSpent;
-  _CustomerStat({required this.name, required this.orders, required this.totalSpent});
+  _CustomerStat(
+      {required this.name, required this.orders, required this.totalSpent});
 }
 
 // INSTALMENT PROVIDER
 class InstalmentProvider extends ChangeNotifier {
   final FirebaseFirestore _db;
-  InstalmentProvider({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  InstalmentProvider({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
   List<InstalmentPlanModel> _plans = [];
   bool _isLoading = false;
   StreamSubscription? _sub;
@@ -848,11 +944,13 @@ class InstalmentProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     _sub?.cancel();
-    _sub = _db.collection('instalments')
+    _sub = _db
+        .collection('instalments')
         .where('customerId', isEqualTo: customerId)
         .snapshots()
         .listen((snap) {
-      _plans = snap.docs.map((d) => InstalmentPlanModel.fromFirestore(d)).toList();
+      _plans =
+          snap.docs.map((d) => InstalmentPlanModel.fromFirestore(d)).toList();
       _isLoading = false;
       notifyListeners();
     });
@@ -863,7 +961,8 @@ class InstalmentProvider extends ChangeNotifier {
     notifyListeners();
     _sub?.cancel();
     _sub = _db.collection('instalments').snapshots().listen((snap) {
-      _plans = snap.docs.map((d) => InstalmentPlanModel.fromFirestore(d)).toList();
+      _plans =
+          snap.docs.map((d) => InstalmentPlanModel.fromFirestore(d)).toList();
       _isLoading = false;
       notifyListeners();
     });
@@ -883,6 +982,7 @@ class InstalmentProvider extends ChangeNotifier {
     final ref = await _db.collection('instalments').add(data);
     return ref.id;
   }
+
   Future<void> submitPhasePayment({
     required String planId,
     required int entryIndex,
@@ -923,7 +1023,8 @@ class InstalmentProvider extends ChangeNotifier {
   }
 
   /// Admin: update a single period's amount (total must not exceed original debt)
-  Future<void> updateEntryAmount(String planId, int entryIndex, double newAmount) async {
+  Future<void> updateEntryAmount(
+      String planId, int entryIndex, double newAmount) async {
     final doc = await _db.collection('instalments').doc(planId).get();
     final plan = InstalmentPlanModel.fromFirestore(doc);
     final entries = List<InstalmentEntry>.from(plan.entries);
@@ -1017,6 +1118,123 @@ class InstalmentProvider extends ChangeNotifier {
       'creditScore': newScore,
       'creditHistory': history,
     });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+}
+
+// CATEGORY PROVIDER
+// Manages product categories stored in Firestore: settings/categories { names: [...] }
+class CategoryProvider extends ChangeNotifier {
+  final FirebaseFirestore _db;
+  CategoryProvider({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
+
+  List<String> _categories = [];
+  bool _isLoading = false;
+  StreamSubscription? _sub;
+
+  List<String> get categories => _categories;
+  bool get isLoading => _isLoading;
+
+  Future<void> loadCategories() async {
+    _isLoading = true;
+    notifyListeners();
+    _sub?.cancel();
+    _sub =
+        _db.collection('settings').doc('categories').snapshots().listen((snap) {
+      if (snap.exists) {
+        final data = snap.data() ?? {};
+        final names = (data['names'] as List<dynamic>? ?? []).cast<String>();
+        _categories = List<String>.from(names)..sort();
+      } else {
+        // First run — seed with existing constant
+        _categories = List<String>.from(AppConstants.productCategories);
+        _db
+            .collection('settings')
+            .doc('categories')
+            .set({'names': _categories});
+      }
+      _isLoading = false;
+      notifyListeners();
+    });
+  }
+
+  Future<void> addCategory(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || _categories.contains(trimmed)) return;
+    await _db.collection('settings').doc('categories').set(
+      {
+        'names': FieldValue.arrayUnion([trimmed])
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  /// Renames [oldName] to [newName] in the Firestore category list and
+  /// batch-updates all products that carry [oldName].
+  Future<void> renameCategory(String oldName, String newName) async {
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty || trimmed == oldName) return;
+
+    // 1. Update category list atomically
+    final ref = _db.collection('settings').doc('categories');
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      final current =
+          (snap.data()?['names'] as List<dynamic>? ?? []).cast<String>();
+      List<String> updated;
+      if (current.contains(oldName)) {
+        updated = current.map((c) => c == oldName ? trimmed : c).toList();
+      } else {
+        updated = [...current, trimmed];
+      }
+      tx.set(ref, {'names': updated});
+    });
+
+    // 2. Batch-update all products carrying oldName
+    final snap = await _db
+        .collection('products')
+        .where('category', isEqualTo: oldName)
+        .get();
+    if (snap.docs.isEmpty) return;
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'category': trimmed});
+    }
+    await batch.commit();
+  }
+
+  /// Deletes [name] from the managed list and moves all products that
+  /// used it to 'Uncategorised'. Returns the count of affected products.
+  Future<int> deleteCategory(String name) async {
+    // 1. Find affected products first
+    final snap = await _db
+        .collection('products')
+        .where('category', isEqualTo: name)
+        .get();
+    final count = snap.docs.length;
+
+    // 2. Remove from category list
+    await _db.collection('settings').doc('categories').update(
+      {
+        'names': FieldValue.arrayRemove([name])
+      },
+    );
+
+    // 3. Batch move products to 'Uncategorised'
+    if (count > 0) {
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.update(doc.reference, {'category': 'Uncategorised'});
+      }
+      await batch.commit();
+    }
+    return count;
   }
 
   @override
