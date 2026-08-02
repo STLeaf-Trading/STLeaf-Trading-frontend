@@ -10,13 +10,13 @@ A **production-ready Flutter app** for **ST Leaf Trading**, a fresh vegetable wh
 
 | Platform | Status | Notes |
 |---|---|---|
-| 🌐 Web (Admin + Customer) | ✅ Supported | Guest browsing allowed; login required at checkout |
+| 🌐 Web (Admin + Customer) | ✅ Live | Guest browsing allowed; login required at checkout |
 | 🤖 Android (Customer App) | ✅ Supported | Login required to access any screen |
-| 🍎 iOS | Planned | — |
+| 🍎 iOS (Customer App) | 🔧 In Progress | Firebase configured; CI/CD via Codemagic |
 
 ### Platform-Specific Auth Behaviour (`kIsWeb`)
 
-| Behaviour | 🌐 Web | 📱 Android |
+| Behaviour | 🌐 Web | 📱 Android / iOS |
 |---|---|---|
 | App opens on | `/shop` (product listing) | `/login` |
 | Browse products | ✅ No login needed | ❌ Login required |
@@ -46,6 +46,7 @@ A **production-ready Flutter app** for **ST Leaf Trading**, a fresh vegetable wh
 ```
 lib/
 ├── main.dart
+├── firebase_options.dart           # Multi-platform Firebase config (Web/Android/iOS)
 ├── core/
 │   ├── theme/
 │   │   ├── app_colors.dart
@@ -80,20 +81,20 @@ lib/
         ├── admin/
         │   ├── dashboard_screen.dart
         │   ├── products/products_screen.dart
-        │   ├── products/product_form_screen.dart  # kg/pack/box responsive layout fixed
-        │   ├── inventory/inventory_screen.dart    # Alert banner overflow fix
+        │   ├── products/product_form_screen.dart  # kg/pack/box responsive layout
+        │   ├── inventory/inventory_screen.dart
         │   ├── customers/customers_screen.dart
         │   ├── orders/admin_orders_screen.dart
         │   ├── delivery/delivery_screen.dart
         │   ├── instalments/admin_instalments_screen.dart
         │   └── reports/reports_screen.dart
         └── customer/
-            ├── home/home_screen.dart              # Loads products for guests (no auth needed)
-            ├── products/product_detail_screen.dart # Total price updates per selected unit
-            ├── cart/cart_screen.dart              # "Sign In to Checkout" for web guests
+            ├── home/home_screen.dart
+            ├── products/product_detail_screen.dart
+            ├── cart/cart_screen.dart
             ├── checkout/
-            │   ├── checkout_screen.dart           # TNG/Maybank notices removed
-            │   └── payment_proof_screen.dart      # Screenshot upload is mandatory
+            │   ├── checkout_screen.dart
+            │   └── payment_proof_screen.dart
             ├── orders/
             │   ├── my_orders_screen.dart
             │   └── cancel_order_screen.dart
@@ -116,6 +117,7 @@ lib/
 | Android Studio / VS Code | Latest |
 | Chrome (for web) | Latest |
 | Firebase Project | Active |
+| Xcode 15+ *(iOS only, macOS required)* | Latest |
 
 ### Install & Run
 
@@ -124,17 +126,21 @@ lib/
 git clone <your-repo-url>
 cd STLeaf_Trading
 
-# 2. Install dependencies
+# 2. Copy and fill in environment variables
+cp .env.example .env
+# Edit .env with your Firebase credentials
+
+# 3. Install dependencies
 flutter pub get
 
-# 3. Run on Chrome (Web) — opens at /shop for guest browsing
+# 4. Run on Chrome (Web) — opens at /shop for guest browsing
 flutter run -d chrome
 
-# 4. Run on Android (connect device or start emulator) — opens at /login
+# 5. Run on Android (connect device or start emulator)
 flutter run -d android
 
-# 5. Build for web (production)
-flutter build web --release
+# 6. Run on iOS (macOS + Xcode required)
+flutter run -d "iPhone 15"
 ```
 
 ---
@@ -147,9 +153,86 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 2. Enable **Authentication** (Email/Password).
 3. Enable **Cloud Firestore**.
 4. Enable **Firebase Storage**.
-5. Add your `google-services.json` (Android) and `GoogleService-Info.plist` (iOS).
-6. For Web, update `web/index.html` with your Firebase config.
+5. Register your apps:
+   - **Android**: Download `google-services.json` → place in `android/app/`
+   - **iOS**: Download `GoogleService-Info.plist` → add to `ios/Runner/` via Xcode
+   - **Web**: Config is in `lib/firebase_options.dart`
+6. Copy `.env.example` to `.env` and fill in all Firebase credentials.
 7. Apply the Firestore security rules from the backend repo.
+
+### Environment Variables (`.env`)
+
+```env
+FIREBASE_WEB_API_KEY=
+FIREBASE_WEB_APP_ID=
+FIREBASE_MESSAGING_SENDER_ID=
+FIREBASE_PROJECT_ID=
+FIREBASE_AUTH_DOMAIN=
+FIREBASE_STORAGE_BUCKET=
+FIREBASE_ANDROID_API_KEY=
+FIREBASE_ANDROID_APP_ID=
+FIREBASE_IOS_API_KEY=
+FIREBASE_IOS_APP_ID=
+FIREBASE_IOS_BUNDLE_ID=
+```
+
+> **Security note:** The `.env` file is listed in `.gitignore` and never committed. Web API keys are intentionally hardcoded in `firebase_options.dart` (web keys are public by design; security is enforced by Firestore rules).
+
+---
+
+## 🤖 CI/CD — Codemagic
+
+This project uses **Codemagic** for automated iOS and Android builds in the cloud. No Mac required for development — Codemagic runs builds on macOS M2 servers.
+
+### How it works
+
+```
+You push to GitHub (main branch)
+        ↓
+Codemagic triggers automatically
+        ↓
+┌─────────────────────────┐   ┌─────────────────────────┐
+│     iOS Workflow        │   │   Android Workflow       │
+│  macOS M2 (Codemagic)  │   │  macOS M2 (Codemagic)   │
+│  ① Create ios/ folder  │   │  ① Reconstruct .env      │
+│  ② Reconstruct .env    │   │  ② flutter pub get       │
+│  ③ Add plist file      │   │  ③ Generate icons/splash │
+│  ④ flutter pub get     │   │  ④ flutter build appbundle│
+│  ⑤ pod install         │   └─────────────────────────┘
+│  ⑥ Generate icons      │              ↓
+│  ⑦ flutter build ipa   │    .aab artifact + email
+└─────────────────────────┘
+           ↓
+  .ipa artifact + TestFlight + email
+```
+
+### Codemagic Environment Variables Required
+
+Add these in **Codemagic Dashboard → App Settings → Environment variables** (tick Secret on all):
+
+| Variable | Description |
+|---|---|
+| `FIREBASE_PROJECT_ID` | Firebase project ID |
+| `FIREBASE_WEB_API_KEY` | Web API key |
+| `FIREBASE_WEB_APP_ID` | Web app ID |
+| `FIREBASE_MESSAGING_SENDER_ID` | Sender ID |
+| `FIREBASE_AUTH_DOMAIN` | Auth domain |
+| `FIREBASE_STORAGE_BUCKET` | Storage bucket |
+| `FIREBASE_ANDROID_API_KEY` | Android API key |
+| `FIREBASE_ANDROID_APP_ID` | Android app ID |
+| `FIREBASE_IOS_API_KEY` | iOS API key |
+| `FIREBASE_IOS_APP_ID` | iOS app ID |
+| `GOOGLE_SERVICE_INFO_PLIST` | Base64-encoded `GoogleService-Info.plist` |
+
+**To encode the plist on Windows (PowerShell):**
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\to\GoogleService-Info.plist")) | clip
+```
+
+### iOS Bundle ID
+```
+com.stleaf.trading
+```
 
 ---
 
@@ -164,17 +247,17 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 ### Admin Portal
 | Screen | Description |
 |---|---|
-| Dashboard | KPI cards (today's orders/revenue, pending, low stock), 7-day revenue chart with real Firestore data, top products pie chart, top customers, recent orders, Export CSV |
+| Dashboard | KPI cards (today's orders/revenue, pending, low stock), 7-day revenue chart, top products pie chart, top customers, recent orders, Export CSV |
 | Store Settings | Admin-configurable delivery fee (saves to Firestore, syncs to checkout) |
 | Products | Responsive grid, category + search filter, freshness level (0–10 slider), CRUD, image upload |
-| Product Form | Create/edit with item code uniqueness check, freshness level slider, **multi-unit pricing (Kg / Pack / Box)**, responsive layout (stacks on narrow screens) |
-| Inventory | Stock progress bars, user-defined low stock level, out-of-stock detection, overflow-safe alert banners |
+| Product Form | Create/edit with item code uniqueness check, **multi-unit pricing (Kg / Pack / Box)**, responsive layout |
+| Inventory | Stock progress bars, user-defined low stock level, out-of-stock detection |
 | Customers | CRM list with search |
 | Customer Detail | Full profile + outstanding balance |
 | Orders | Status filter tabs, order pipeline, Confirm → Packed → Delivered flow |
-| Order Detail | Status stepper, items, payment summary, action buttons (Confirm/Packed/Delivered), admin Cancel with reason |
+| Order Detail | Status stepper, items, payment summary, action buttons, admin Cancel with reason |
 | Delivery | Delivery-only orders (deliveryFee > 0), status tracking |
-| Instalments | Track all customer instalment plans, review uploaded receipts, and mark phases as Paid/Late |
+| Instalments | Track all customer instalment plans, review uploaded receipts, mark phases as Paid/Late |
 | Reports | Analytics charts and tables |
 
 ### Customer Portal
@@ -183,17 +266,17 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 | Home / Shop | Hero banner, category filter pills, product grid, floating contact widget. **Accessible to guests on web** |
 | Product Detail | Freshness badge (0–10 scale), qty selector, **total price updates based on selected unit (Kg/Pack/Box)**, add to cart |
 | Cart | Item list, qty controls, subtotal. Web guests see "Sign In to Checkout" button |
-| Checkout | Choose Pickup or Company Delivery (requires address, fee set by admin), Cash/FPX/TNG/Instalment payment. **TNG/Maybank notices removed** (payment proceeds after admin confirmation) |
-| Payment Proof | Upload payment screenshot — **mandatory before viewing orders** (no "upload later" option) |
+| Checkout | Choose Pickup or Company Delivery, Cash/FPX/TNG/Instalment payment |
+| Payment Proof | Upload payment screenshot — **mandatory before viewing orders** |
 | My Orders | Progress bars, status filter chips, Cancel button (Pending/Confirmed only) |
-| Order Detail | Vertical status stepper, cancellation reason display, Cancel Order button |
-| Instalments | Track active instalment plans, click to upload receipts, pay phases via FPX/TNG/Cash |
+| Order Detail | Vertical status stepper, cancellation reason display |
+| Instalments | Track active instalment plans, upload receipts, pay phases |
 | Cancel Order | Reason selector (preset + custom "Other" option), confirmation dialog |
 | Profile | Stats, Edit Profile, My Orders, Contact Support, T&C, Privacy Policy, Delete Account, Logout |
-| Edit Profile | Update company name, contact person, phone, delivery address (email read-only) |
+| Edit Profile | Update company name, contact person, phone, delivery address |
 | Terms & Conditions | 10-section T&C specific to ST Leaf Trading |
 | Privacy Policy | 10-section PDPA-aligned privacy statement |
-| Contact Support | WhatsApp (011-2889 2991), Phone, Email, company address + hours |
+| Contact Support | WhatsApp, Phone, Email, company address + hours |
 
 ---
 
@@ -214,6 +297,7 @@ This project uses **Firebase** as its backend. You need to configure your own Fi
 | `url_launcher` | WhatsApp & phone links in contact widget |
 | `image_picker` | Product image & payment proof selection |
 | `pdf` & `printing` | Generating and downloading PDF order reports |
+| `flutter_dotenv` | Loads Firebase secrets from `.env` file |
 
 ---
 
@@ -279,14 +363,14 @@ Pending / Confirmed -> Cancelled (Customer can self-cancel)
 - **Pickup** — Customer collects from J1809 Pasar Jasin. Delivery fee = RM 0.00.
 - **Company Delivery** — Requires customer to have a saved address. Fee is set by admin in Store Settings and persisted in Firestore (`settings/general`).
 - **Payment Methods** — Cash / COD, FPX (Online Banking), Touch 'n Go (TNG), Instalment.
-- **Payment Flow** — Customer places order → Admin confirms → Customer receives payment details and uploads proof screenshot. **Screenshot upload is mandatory** before the customer can navigate away.
+- **Payment Flow** — Customer places order → Admin confirms → Customer uploads payment proof. **Screenshot upload is mandatory** before the customer can navigate away.
 - **Delivery Page (Admin)** — Only shows orders where `deliveryFee > 0`.
 
 ---
 
 ## 🛒 Product Pricing (Multi-Unit)
 
-Each product supports up to **4 pricing tiers** by unit type:
+Each product supports up to **3 pricing tiers** by unit type:
 
 | Unit | Example Use |
 |---|---|
@@ -296,7 +380,6 @@ Each product supports up to **4 pricing tiers** by unit type:
 
 - The price shown in the cart and total updates dynamically when the customer changes unit.
 - On the product detail screen, the **Total** always reflects the currently selected unit's price × quantity.
-- On the admin product form, the unit/price row is responsive — stacks vertically on narrow screens.
 
 ---
 
@@ -344,14 +427,36 @@ flutter build appbundle --release
 
 ---
 
+## 🍎 iOS Build
+
+> iOS builds require **macOS + Xcode**. On Windows, use **Codemagic** (CI/CD) to build in the cloud.
+
+```bash
+# Generate icons & splash (on Mac)
+dart run flutter_launcher_icons
+dart run flutter_native_splash:create
+
+# Run on iOS Simulator
+flutter run -d "iPhone 15"
+
+# Build release IPA
+flutter build ipa --release
+```
+
+**Bundle ID:** `com.stleaf.trading`  
+**Minimum iOS version:** 13.0  
+**CI/CD:** Automated via Codemagic (push to `main` → auto-build → TestFlight)
+
+---
+
 ## 🔮 Future Roadmap
 
 | Feature | Status |
 |---|---|
+| iOS App | 🔧 In Progress (Codemagic CI/CD configured) |
 | Push Notifications (order updates) | Planned |
 | Promotion & Discount Engine | Planned |
 | Loyalty Points Program | Planned |
-| iOS App | Planned |
 | AI-based Demand Prediction | Planned |
 | Multi-language (BM / EN) | Planned |
 
