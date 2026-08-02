@@ -140,13 +140,16 @@ class FreshnessBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _color.withOpacity(0.3)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_icon, size: 11, color: _color),
-          const SizedBox(width: 3),
-          Text(_label, style: TextStyle(color: _color, fontSize: 10, fontWeight: FontWeight.w600)),
-        ],
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(_icon, size: 11, color: _color),
+            const SizedBox(width: 3),
+            Text(_label, style: TextStyle(color: _color, fontSize: 10, fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }

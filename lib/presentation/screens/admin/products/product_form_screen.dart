@@ -663,7 +663,7 @@ class _FormSection extends StatelessWidget {
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: AppColors.primary)),
-                    if (sizes.length < 4)
+                    if (sizes.length < AppConstants.productUnitTypes.length)
                       TextButton.icon(
                           onPressed: onAddSize,
                           icon: const Icon(Icons.add_rounded),

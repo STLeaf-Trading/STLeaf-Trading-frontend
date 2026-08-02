@@ -342,7 +342,7 @@ class _RecentOrdersCard extends StatelessWidget {
           if (orders.isEmpty)
             const EmptyState(title: 'No orders yet', icon: Icons.receipt_long_outlined)
           else
-            ...orders.take(4).map((order) {
+            ...orders.map((order) {
               // Orders that are not Delivered or Cancelled are navigable
               final isNavigable = order.orderStatus != 'Delivered' &&
                   order.orderStatus != 'Cancelled';

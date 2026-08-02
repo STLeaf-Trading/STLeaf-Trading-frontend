@@ -20,6 +20,10 @@ dependencies:
   http: ^1.2.2
   shared_preferences: ^2.3.2
 
+  # Image caching & compression
+  cached_network_image: ^3.4.1
+  flutter_image_compress: ^2.3.0
+
   # Charts
   fl_chart: ^0.69.0
 
@@ -30,7 +34,7 @@ dependencies:
   intl: ^0.19.0
   uuid: ^4.4.2
 
-  # Icons
+  # Icons & Firebase
   cupertino_icons: ^1.0.8
   firebase_core: ^4.11.0
   firebase_auth: ^6.5.3
@@ -60,11 +64,11 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/logo.jpeg"
+  image_path: "assets/images/logo_square.jpeg"
 
 flutter_native_splash:
   color: "#FFFFFF"
-  image: "assets/images/logo.jpeg"
+  image: "assets/images/logo_square.jpeg"
   android: true
   ios: true
   web: false

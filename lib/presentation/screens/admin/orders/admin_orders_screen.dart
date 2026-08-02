@@ -144,8 +144,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           children: [
             Icon(Icons.delete_sweep_rounded, color: AppColors.danger),
             SizedBox(width: 10),
-            Text('Cleanup Cancelled Orders',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+            Expanded(
+              child: Text('Cleanup Cancelled Orders',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+            ),
           ],
         ),
         content: const Text(
@@ -559,7 +561,9 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                 style: IconButton.styleFrom(backgroundColor: AppColors.mint),
               ),
               const SizedBox(width: 16),
-              Text(order.orderId, style: Theme.of(context).textTheme.displaySmall),
+              Expanded(
+                child: Text(order.orderId, style: Theme.of(context).textTheme.displaySmall),
+              ),
             ]),
             const SizedBox(height: 24),
 

@@ -170,10 +170,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // App info
             Column(
               children: [
-                Container(
-                  width: 48, height: 48,
-                  decoration: const BoxDecoration(gradient: AppColors.primaryGradient, shape: BoxShape.circle),
-                  child: ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.asset('assets/images/logo.jpeg', width: 24, height: 24, fit: BoxFit.cover)),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12), 
+                  child: Image.asset('assets/images/logo_square.jpeg', width: 48, height: 48, fit: BoxFit.cover),
                 ),
                 const SizedBox(height: 8),
                 const Text('ST Leaf Trading', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary)),

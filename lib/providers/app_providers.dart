@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../data/models/product_model.dart';
 import '../data/models/customer_model.dart';
 import '../data/models/order_model.dart';
@@ -129,9 +131,23 @@ class ProductProvider extends ChangeNotifier {
   Future<String?> uploadProductImage(
       Uint8List fileBytes, String fileName) async {
     try {
+      // Compress image before upload: max 800x800, quality 85
+      // This reduces file size ~70-80%, making uploads and loads much faster
+      Uint8List compressed = fileBytes;
+      if (!kIsWeb) {
+        final result = await FlutterImageCompress.compressWithList(
+          fileBytes,
+          minWidth: 800,
+          minHeight: 800,
+          quality: 85,
+          format: CompressFormat.jpeg,
+        );
+        compressed = result;
+      }
+
       final ref = FirebaseStorage.instance.ref().child('products/$fileName');
       final metadata = SettableMetadata(contentType: 'image/jpeg');
-      await ref.putData(fileBytes, metadata);
+      await ref.putData(compressed, metadata);
       return await ref.getDownloadURL();
     } catch (e) {
       debugPrint('Image upload error: $e');
@@ -487,31 +503,25 @@ class OrderProvider extends ChangeNotifier {
     final cutoff = DateTime.now().subtract(const Duration(days: 30));
     final cutoffTs = Timestamp.fromDate(cutoff);
 
-    // Try cancelledAt first, fall back to updatedAt, then createdAt.
-    // We run two queries because Firestore can't OR across different fields.
-    final snap1 = await _db
+    // Query all cancelled orders first to avoid needing a Firestore composite index.
+    final snap = await _db
         .collection('orders')
         .where('orderStatus', isEqualTo: 'Cancelled')
-        .where('cancelledAt', isLessThan: cutoffTs)
         .get();
 
-    final snap2 = await _db
-        .collection('orders')
-        .where('orderStatus', isEqualTo: 'Cancelled')
-        .where('createdAt', isLessThan: cutoffTs)
-        .get();
-
-    // Merge, deduplicate by doc ID
     final allDocs = <String, QueryDocumentSnapshot>{};
-    for (final doc in [...snap1.docs, ...snap2.docs]) {
-      // Double-check cancelledAt is absent or old enough
-      final data = doc.data();
+    for (final doc in snap.docs) {
+      final data = doc.data() as Map<String, dynamic>;
       final cancelledAt = data['cancelledAt'] as Timestamp?;
-      if (cancelledAt != null && cancelledAt.compareTo(cutoffTs) >= 0) {
-        // cancelledAt is recent — skip
-        continue;
+      final createdAt = data['createdAt'] as Timestamp?;
+      
+      // Use cancelledAt if available, otherwise fallback to createdAt
+      final compareTime = cancelledAt ?? createdAt;
+      
+      // Only delete if the order is old enough
+      if (compareTime != null && compareTime.compareTo(cutoffTs) < 0) {
+        allDocs[doc.id] = doc;
       }
-      allDocs[doc.id] = doc;
     }
 
     if (allDocs.isEmpty) return 0;

@@ -5,6 +5,7 @@ import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/data/models/product_model.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
+import 'package:stleaf_trading/presentation/widgets/common/cached_product_image.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/admin_layout.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -398,79 +399,110 @@ class _FilterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              onChanged: provider.setSearch,
-              decoration: InputDecoration(
-                hintText: 'Search products...',
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
-                filled: true, fillColor: AppColors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Category filter
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: AppColors.white, borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: provider.dynamicCategories.contains(provider.selectedCategory)
-                    ? provider.selectedCategory
-                    : (provider.dynamicCategories.isNotEmpty ? provider.dynamicCategories.first : null),
-                items: provider.dynamicCategories.map((c) =>
-                  DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 14)))).toList(),
-                onChanged: (v) {
-                  if (v != null) provider.setCategory(v);
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Sort field dropdown
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: AppColors.white, borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: provider.sortField,
-                items: _sortOptions.map(((String, String) opt) =>
-                  DropdownMenuItem(
-                    value: opt.$1,
-                    child: Text(opt.$2, style: const TextStyle(fontSize: 14)),
-                  )).toList(),
-                onChanged: (v) {
-                  if (v != null) provider.setSorting(v, provider.sortAscending);
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          // Asc / Desc toggle
-          IconButton(
-            tooltip: provider.sortAscending ? 'Sort Ascending' : 'Sort Descending',
-            onPressed: () => provider.setSorting(provider.sortField, !provider.sortAscending),
-            icon: Icon(
-              provider.sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-              color: AppColors.primary, size: 20,
-            ),
-          ),
-        ],
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
+    final searchField = TextField(
+      onChanged: provider.setSearch,
+      decoration: InputDecoration(
+        hintText: 'Search products...',
+        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted, size: 20),
+        filled: true, fillColor: AppColors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
+    );
+
+    final categoryDropdown = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white, borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: isMobile,
+          value: provider.dynamicCategories.contains(provider.selectedCategory)
+              ? provider.selectedCategory
+              : (provider.dynamicCategories.isNotEmpty ? provider.dynamicCategories.first : null),
+          items: provider.dynamicCategories.map((c) =>
+            DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 14), overflow: TextOverflow.ellipsis))).toList(),
+          onChanged: (v) {
+            if (v != null) provider.setCategory(v);
+          },
+        ),
+      ),
+    );
+
+    final sortDropdown = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white, borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: isMobile,
+          value: provider.sortField,
+          items: _sortOptions.map(((String, String) opt) =>
+            DropdownMenuItem(
+              value: opt.$1,
+              child: Text(opt.$2, style: const TextStyle(fontSize: 14), overflow: TextOverflow.ellipsis),
+            )).toList(),
+          onChanged: (v) {
+            if (v != null) provider.setSorting(v, provider.sortAscending);
+          },
+        ),
+      ),
+    );
+
+    final sortBtn = IconButton(
+      tooltip: provider.sortAscending ? 'Sort Ascending' : 'Sort Descending',
+      onPressed: () => provider.setSorting(provider.sortField, !provider.sortAscending),
+      icon: Icon(
+        provider.sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+        color: AppColors.primary, size: 20,
+      ),
+    );
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(isMobile ? 16 : 28, 20, isMobile ? 16 : 28, 12),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                searchField,
+                const SizedBox(height: 12),
+                categoryDropdown,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: sortDropdown),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        border: Border.all(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: sortBtn,
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: searchField),
+                const SizedBox(width: 12),
+                categoryDropdown,
+                const SizedBox(width: 8),
+                sortDropdown,
+                const SizedBox(width: 4),
+                sortBtn,
+              ],
+            ),
     );
   }
 }
@@ -536,19 +568,18 @@ class _ProductCardState extends State<_ProductCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Image
-            Container(
+            SizedBox(
               height: 130,
-              decoration: BoxDecoration(
-                color: AppColors.mint,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                image: p.imageUrl != null ? DecorationImage(
-                  image: NetworkImage(p.imageUrl!), fit: BoxFit.cover
-                ) : null,
-              ),
               child: Stack(
                 children: [
-                  if (p.imageUrl == null)
-                    Center(child: Icon(Icons.eco_rounded, size: 52, color: AppColors.primary.withOpacity(0.3))),
+                  CachedProductImage(
+                    imageUrl: p.imageUrl,
+                    width: double.infinity,
+                    height: 130,
+                    fit: BoxFit.cover,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    iconSize: 52,
+                  ),
                   if (p.hasPromotion)
                     Positioned(top: 10, left: 10,
                       child: Container(

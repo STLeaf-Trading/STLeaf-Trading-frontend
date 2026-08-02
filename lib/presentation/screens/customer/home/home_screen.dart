@@ -4,6 +4,7 @@ import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/data/models/product_model.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
+import 'package:stleaf_trading/presentation/widgets/common/cached_product_image.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart';
 import 'package:stleaf_trading/presentation/screens/customer/products/product_detail_screen.dart';
 
@@ -275,18 +276,17 @@ class _ProductGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final crossCount = constraints.maxWidth > 900
-            ? 4
-            : (constraints.maxWidth > 600 ? 3 : 2);
+            ? 5
+            : (constraints.maxWidth > 600 ? 4 : 3);
         final itemWidth =
-            (constraints.maxWidth - 32 - (crossCount - 1) * 12) / crossCount;
-        final itemHeight = (itemWidth * 0.8) +
-            195; // dynamic height calculation to prevent overflow
+            (constraints.maxWidth - 32 - (crossCount - 1) * 10) / crossCount;
+        final itemHeight = (itemWidth * 0.85) + 170;
         return GridView.builder(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
             childAspectRatio: itemWidth / itemHeight,
           ),
           itemCount: products.length,
@@ -352,23 +352,14 @@ class _ProductCardState extends State<_ProductCard> {
                 flex: 4,
                 child: Stack(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.mint,
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(16)),
-                        image: p.imageUrl != null
-                            ? DecorationImage(
-                                image: NetworkImage(p.imageUrl!),
-                                fit: BoxFit.cover)
-                            : null,
-                      ),
-                      child: p.imageUrl == null
-                          ? Center(
-                              child: Icon(Icons.eco_rounded,
-                                  size: 50,
-                                  color: AppColors.primary.withOpacity(0.3)))
-                          : null,
+                    CachedProductImage(
+                      imageUrl: p.imageUrl,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(16)),
+                      iconSize: 50,
                     ),
                     if (p.hasPromotion)
                       Positioned(
@@ -420,31 +411,31 @@ class _ProductCardState extends State<_ProductCard> {
               Expanded(
                 flex: 5,
                 child: Padding(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(7),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       FreshnessBadge(level: p.freshnessLevel),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(p.name,
                           style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 13),
+                              fontWeight: FontWeight.w700, fontSize: 11),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
                       const Spacer(),
                       if (p.hasPromotion)
                         Text('RM ${p.defaultSize!.price.toStringAsFixed(2)}',
                             style: const TextStyle(
-                                fontSize: 10,
+                                fontSize: 9,
                                 color: AppColors.textMuted,
                                 decoration: TextDecoration.lineThrough)),
                       Text(
                           '${p.sizes.length > 1 ? 'From ' : ''}RM ${p.effectivePrice.toStringAsFixed(2)}',
                           style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 12,
                               fontWeight: FontWeight.w800,
                               color: AppColors.primary)),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 5),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
@@ -458,13 +449,13 @@ class _ProductCardState extends State<_ProductCard> {
                                   );
                                 },
                           icon: const Icon(Icons.add_shopping_cart_rounded,
-                              size: 14),
+                              size: 11),
                           label:
-                              const Text('Add', style: TextStyle(fontSize: 12)),
+                              const Text('Add', style: TextStyle(fontSize: 10)),
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 6),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                                borderRadius: BorderRadius.circular(7)),
                           ),
                         ),
                       ),

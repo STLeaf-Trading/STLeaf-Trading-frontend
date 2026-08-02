@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/data/models/product_model.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
+import 'package:stleaf_trading/presentation/widgets/common/cached_product_image.dart';
 import 'package:stleaf_trading/presentation/widgets/layout/customer_layout.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -223,7 +225,14 @@ class _ProductImage extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   InteractiveViewer(
-                    child: Image.network(product.imageUrl!),
+                    child: CachedNetworkImage(
+                      imageUrl: product.imageUrl!,
+                      placeholder: (context, url) => const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.broken_image, color: Colors.white, size: 80),
+                    ),
                   ),
                   Positioned(
                     top: 0,
@@ -240,22 +249,18 @@ class _ProductImage extends StatelessWidget {
           );
         }
       },
-      child: Container(
+      child: SizedBox(
         height: 320,
-        decoration: BoxDecoration(
-          color: AppColors.mint,
-          borderRadius: BorderRadius.circular(20),
-          image: product.imageUrl != null
-              ? DecorationImage(
-                  image: NetworkImage(product.imageUrl!), fit: BoxFit.cover)
-              : null,
-        ),
         child: Stack(
           children: [
-            if (product.imageUrl == null)
-              Center(
-                  child: Icon(Icons.eco_rounded,
-                      size: 120, color: AppColors.primary.withOpacity(0.25))),
+            CachedProductImage(
+              imageUrl: product.imageUrl,
+              width: double.infinity,
+              height: 320,
+              fit: BoxFit.cover,
+              borderRadius: BorderRadius.circular(20),
+              iconSize: 120,
+            ),
             if (product.hasPromotion)
               Positioned(
                   top: 16,
@@ -373,26 +378,28 @@ class _ProductInfo extends StatelessWidget {
         ],
 
         // Description
-        AppCard(
-          color: AppColors.mint,
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Row(children: [
-              Icon(Icons.info_outline_rounded,
-                  size: 16, color: AppColors.primary),
-              SizedBox(width: 6),
-              Text('Product Description',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary)),
+        if (p.description.isNotEmpty) ...[
+          AppCard(
+            color: AppColors.mint,
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 16, color: AppColors.primary),
+                SizedBox(width: 6),
+                Text('Product Description',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary)),
+              ]),
+              const SizedBox(height: 8),
+              Text(p.description,
+                  style: const TextStyle(fontSize: 14, height: 1.5)),
             ]),
-            const SizedBox(height: 8),
-            Text(p.description,
-                style: const TextStyle(fontSize: 14, height: 1.5)),
-          ]),
-        ),
-        const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (p.precaution.isNotEmpty)
           AppCard(
             color: AppColors.warningLight,
