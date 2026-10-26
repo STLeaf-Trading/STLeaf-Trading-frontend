@@ -52,5 +52,4 @@ app.*.map.json
 # Run with: flutter run --dart-define-from-file=secrets.json
 secrets.json
 lib/firebase_options.dart
-.env
-secrets.json
+.firebase/

@@ -95,20 +95,50 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
             child: Row(
               children: allStatuses.map((s) {
                 final isSelected = provider.statusFilter == s;
+                final pendingCount = s == 'Pending'
+                    ? provider.allOrders.where((o) => o.orderStatus == 'Pending').length
+                    : 0;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(s),
-                    selected: isSelected,
-                    onSelected: (_) => provider.setStatusFilter(s),
-                    selectedColor: AppColors.mint,
-                    checkmarkColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                      fontSize: 13,
-                    ),
-                    side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      FilterChip(
+                        label: Text(s),
+                        selected: isSelected,
+                        onSelected: (_) => provider.setStatusFilter(s),
+                        selectedColor: AppColors.mint,
+                        checkmarkColor: AppColors.primary,
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                          fontSize: 13,
+                        ),
+                        side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
+                      ),
+                      if (s == 'Pending')
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: AppColors.danger,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                            child: Text(
+                              '$pendingCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 );
               }).toList(),
@@ -295,10 +325,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
   void _showPackListDialog(BuildContext context, List<OrderModel> allOrders) {
     // Filter to active orders (not cancelled/delivered)
-    final activeOrders = allOrders
-        .where((o) => o.orderStatus != 'Cancelled' && o.orderStatus != 'Delivered')
+    final activeOrders = context.read<OrderProvider>().allOrders
+        .where((o) => o.orderStatus == 'Pending')
         .toList()
-      ..sort((a, b) => a.orderId.compareTo(b.orderId));
+      ..sort((a, b) => b.orderDate.compareTo(a.orderDate));
 
     final formatter = NumberFormat.currency(symbol: 'RM ', decimalDigits: 2);
 
@@ -814,7 +844,35 @@ class _OrderSummaryCard extends StatelessWidget {
               label: 'Mark Payment as Paid',
               icon: Icons.payments_outlined,
               width: double.infinity,
-              onPressed: () => context.read<OrderProvider>().updatePaymentStatus(order.id, 'Paid'),
+              onPressed: () async {
+                final hasPriceSet = order.finalSubtotal != null && order.finalSubtotal! > 0;
+                if (!hasPriceSet) {
+                  await showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      title: const Row(children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('Price Not Set', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ]),
+                      content: const Text(
+                        'You cannot mark this order as Paid because the price has not been set yet.\n\nPlease go to the Manage Order tab to set the item prices first.',
+                      ),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+                if (context.mounted) {
+                  context.read<OrderProvider>().updatePaymentStatus(order.id, 'Paid');
+                }
+              },
             ),
           ],
           
@@ -828,69 +886,6 @@ class _OrderSummaryCard extends StatelessWidget {
             ),
           ],
           
-          if (order.finalSubtotal == null && order.orderStatus != 'Cancelled') ...[
-            const SizedBox(height: 12),
-            AppButton(
-              label: 'Set Final Prices',
-              icon: Icons.edit_note_rounded,
-              width: double.infinity,
-              onPressed: () async {
-                final orderPriceCtrl = TextEditingController(text: order.subtotal.toStringAsFixed(2));
-                final feeCtrl = TextEditingController(text: order.deliveryAddress == 'Pickup' ? '0.00' : '');
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    title: const Text('Set Final Prices', style: TextStyle(fontWeight: FontWeight.w700)),
-                    content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Actual Order Price:', style: TextStyle(fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: orderPriceCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(
-                          prefixText: 'RM ',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text('Delivery Fee:', style: TextStyle(fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: feeCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        enabled: order.deliveryAddress != 'Pickup',
-                        decoration: InputDecoration(
-                          prefixText: 'RM ',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    ]),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Save Prices'),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm == true && context.mounted) {
-                  final finalSub = double.tryParse(orderPriceCtrl.text.trim()) ?? order.subtotal;
-                  final fee = double.tryParse(feeCtrl.text.trim()) ?? 0.0;
-                  await context.read<OrderProvider>().updateOrderFields(order.id, {
-                    'finalSubtotal': finalSub,
-                    'deliveryFee': fee,
-                    'totalAmount': finalSub + fee,
-                    'paymentStatus': (finalSub + fee) > 0 ? 'Awaiting Payment' : 'Paid',
-                  });
-                }
-                orderPriceCtrl.dispose();
-                feeCtrl.dispose();
-              },
-            ),
-          ],
-
           const SizedBox(height: 24),
           _buildActionButtons(context),
           
@@ -947,15 +942,63 @@ class _OrderSummaryCard extends StatelessWidget {
   Widget _buildActionButtons(BuildContext context) {
     final provider = context.read<OrderProvider>();
     final isPickup = order.deliveryAddress == 'Pickup';
+    final hasPriceSet = order.finalSubtotal != null && order.finalSubtotal! > 0;
+    final isPaid = order.paymentStatus == 'Paid';
 
     if (order.orderStatus == 'Pending') {
-      final canConfirm = order.finalSubtotal != null;
       return AppButton(
-        label: canConfirm ? 'Confirm Order' : 'Set Prices First',
+        label: 'Confirm Order',
         icon: Icons.check_circle_outline_rounded,
         width: double.infinity,
-        onPressed: canConfirm ? () => provider.updateStatus(order.id, 'Confirmed') : () {},
-        isOutlined: !canConfirm,
+        onPressed: () async {
+          if (!hasPriceSet) {
+            await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: const Row(children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Price Not Set', style: TextStyle(fontWeight: FontWeight.w700)),
+                ]),
+                content: const Text(
+                  'This order does not have a price set yet.\n\nPlease go to the Manage Order tab first to set the item prices before confirming.',
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+          if (!isPaid) {
+            await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: const Row(children: [
+                  Icon(Icons.payment_rounded, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Payment Not Verified', style: TextStyle(fontWeight: FontWeight.w700)),
+                ]),
+                content: const Text(
+                  'This order cannot be confirmed because payment has not been verified as Paid yet.\n\nPlease verify the customer\'s payment receipt first.',
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+          provider.updateStatus(order.id, 'Confirmed');
+        },
       );
     }
     
@@ -974,14 +1017,64 @@ class _OrderSummaryCard extends StatelessWidget {
           label: 'Picked Up / Delivered',
           icon: Icons.done_all_rounded,
           width: double.infinity,
-          onPressed: () => provider.updateStatus(order.id, 'Delivered'),
+          onPressed: () async {
+            if (!isPaid) {
+              await showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: const Row(children: [
+                    Icon(Icons.payment_rounded, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Payment Not Verified', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ]),
+                  content: const Text(
+                    'This order cannot be marked as Delivered because payment has not been verified as Paid yet.\n\nPlease verify the customer\'s payment receipt first.',
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+              return;
+            }
+            provider.updateStatus(order.id, 'Delivered');
+          },
         );
       } else {
         return AppButton(
           label: 'Out for Delivery',
           icon: Icons.local_shipping_outlined,
           width: double.infinity,
-          onPressed: () => provider.updateStatus(order.id, 'Out For Delivery'),
+          onPressed: () async {
+            if (!isPaid) {
+              await showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: const Row(children: [
+                    Icon(Icons.payment_rounded, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Payment Not Verified', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ]),
+                  content: const Text(
+                    'This order cannot be sent for delivery because payment has not been verified as Paid yet.\n\nPlease verify the customer\'s payment receipt first.',
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+              return;
+            }
+            provider.updateStatus(order.id, 'Out For Delivery');
+          },
         );
       }
     }
@@ -991,7 +1084,32 @@ class _OrderSummaryCard extends StatelessWidget {
         label: 'Mark as Delivered',
         icon: Icons.done_all_rounded,
         width: double.infinity,
-        onPressed: () => provider.updateStatus(order.id, 'Delivered'),
+        onPressed: () async {
+          if (!isPaid) {
+            await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: const Row(children: [
+                  Icon(Icons.payment_rounded, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Payment Not Verified', style: TextStyle(fontWeight: FontWeight.w700)),
+                ]),
+                content: const Text(
+                  'This order cannot be marked as Delivered because payment has not been verified as Paid yet.\n\nPlease verify the customer\'s payment receipt first.',
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+          provider.updateStatus(order.id, 'Delivered');
+        },
       );
     }
 
@@ -1459,7 +1577,20 @@ class _PaymentProofCard extends StatelessWidget {
                   InteractiveViewer(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.network(proofUrl, fit: BoxFit.contain),
+                      child: Image.network(
+                        proofUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Container(
+                          padding: const EdgeInsets.all(24),
+                          color: Colors.black87,
+                          child: const Center(
+                            child: Text(
+                              'Unable to load image',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   Positioned(

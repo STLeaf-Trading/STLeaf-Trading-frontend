@@ -417,7 +417,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ],
 
             // Pay Now Block
-            if (order.paymentStatus == 'Awaiting Payment' && (order.paymentMethod == "Touch 'n Go (TNG)" || order.paymentMethod == 'Maybank Transfer')) ...[
+            if (order.finalSubtotal != null && order.finalSubtotal! > 0 && 
+                (order.paymentStatus == 'Pending' || order.paymentStatus == 'Awaiting Payment') && 
+                (order.paymentMethod == "Touch 'n Go (TNG)" || order.paymentMethod == 'Maybank Transfer')) ...[
                const SizedBox(height: 16),
                AppButton(
                  label: 'Pay Now (RM ${order.totalAmount.toStringAsFixed(2)})',

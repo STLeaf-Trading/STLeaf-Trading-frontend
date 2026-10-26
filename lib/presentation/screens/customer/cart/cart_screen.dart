@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
-import 'package:stleaf_trading/core/constants/app_constants.dart';
 import 'package:stleaf_trading/providers/app_providers.dart';
 import 'package:stleaf_trading/providers/auth_provider.dart';
 import 'package:stleaf_trading/presentation/widgets/common/common_widgets.dart';
@@ -131,7 +130,7 @@ class _CartItemCardState extends State<_CartItemCard> {
               children: [
                 Text(widget.item.product.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 2),
-                Text('RM ${widget.item.selectedSize.effectivePrice.toStringAsFixed(2)} / ${widget.item.selectedSize.unit}',
+                Text('${widget.item.selectedSize.effectivePrice > 0 ? 'RM ${widget.item.selectedSize.effectivePrice.toStringAsFixed(2)} / ${widget.item.selectedSize.unit}' : widget.item.selectedSize.unit}',
                   style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                 if (widget.item.remarks != null && widget.item.remarks!.isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -147,8 +146,9 @@ class _CartItemCardState extends State<_CartItemCard> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('RM ${widget.item.subtotal.toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primary)),
+              if (widget.item.subtotal > 0)
+                Text('RM ${widget.item.subtotal.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primary)),
               const SizedBox(height: 8),
               Row(children: [
                 // Decrease
@@ -253,9 +253,6 @@ class _CartSummary extends StatelessWidget {
       }
     }
 
-    final double remaining = AppConstants.minOrderForDelivery - cart.subtotal;
-    final bool belowMoq = remaining > 0;
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -265,42 +262,18 @@ class _CartSummary extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _row('Subtotal', 'RM ${cart.subtotal.toStringAsFixed(2)}'),
+          _row('Subtotal', 'TBD by Admin'),
           const SizedBox(height: 8),
-          _row('Delivery Fee', 'Calculated at checkout'),
+          _row('Delivery Fee', 'TBD by Admin'),
           const Divider(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Estimated Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-              Text('RM ${cart.total.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primary)),
+              const Text('TBD by Admin',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.primary)),
             ],
           ),
-          // MOQ warning
-          if (belowMoq) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.warningLight,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.warning.withOpacity(0.4)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.warning),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Add RM ${remaining.toStringAsFixed(2)} more for delivery. You can still choose self-pickup.',
-                      style: const TextStyle(fontSize: 12, color: AppColors.warning, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
           AppButton(
             label: hasUnavailableItems 

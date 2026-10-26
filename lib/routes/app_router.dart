@@ -12,6 +12,7 @@ import '../presentation/screens/admin/products/product_form_screen.dart';
 import '../presentation/screens/admin/inventory/inventory_screen.dart';
 import '../presentation/screens/admin/customers/customers_screen.dart';
 import '../presentation/screens/admin/orders/admin_orders_screen.dart';
+import '../presentation/screens/admin/orders/admin_manage_order_screen.dart';
 import '../presentation/screens/admin/delivery/delivery_screen.dart';
 import '../presentation/screens/admin/reports/reports_screen.dart';
 import '../presentation/screens/admin/instalments/admin_instalments_screen.dart';
@@ -194,6 +195,9 @@ GoRouter buildRouter(String initialLocation) {
       GoRoute(
           path: '/admin/reports',
           builder: (ctx, state) => const ReportsScreen()),
+      GoRoute(
+          path: '/admin/manage-order',
+          builder: (ctx, state) => const AdminManageOrderScreen()),
 
       // Customer Routes
       GoRoute(path: '/shop', builder: (ctx, state) => const HomeScreen()),

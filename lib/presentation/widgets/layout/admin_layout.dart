@@ -3,12 +3,26 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 import 'package:stleaf_trading/providers/auth_provider.dart';
+import 'package:stleaf_trading/providers/app_providers.dart';
 
-class AdminLayout extends StatelessWidget {
+class AdminLayout extends StatefulWidget {
   final Widget child;
   final String currentRoute;
 
   const AdminLayout({super.key, required this.child, required this.currentRoute});
+
+  @override
+  State<AdminLayout> createState() => _AdminLayoutState();
+}
+
+class _AdminLayoutState extends State<AdminLayout> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<OrderProvider>().loadOrders();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,8 +33,8 @@ class AdminLayout extends StatelessWidget {
         backgroundColor: AppColors.surface,
         body: Row(
           children: [
-            _Sidebar(currentRoute: currentRoute),
-            Expanded(child: child),
+            _Sidebar(currentRoute: widget.currentRoute),
+            Expanded(child: widget.child),
           ],
         ),
       );
@@ -28,12 +42,12 @@ class AdminLayout extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: _MobileAppBar(currentRoute: currentRoute),
+      appBar: _MobileAppBar(currentRoute: widget.currentRoute),
       drawer: Drawer(
         backgroundColor: AppColors.sidebarBg,
-        child: _SidebarContent(currentRoute: currentRoute),
+        child: _SidebarContent(currentRoute: widget.currentRoute),
       ),
-      body: child,
+      body: widget.child,
     );
   }
 }
@@ -60,13 +74,20 @@ class _SidebarContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.read<AuthProvider>();
+    final orders = context.watch<OrderProvider>().allOrders;
+    final pendingCount = orders.where((o) => o.orderStatus == 'Pending').length;
+    final unpricedCount = orders.where((o) =>
+      o.orderStatus == 'Pending' &&
+      (o.finalSubtotal == null || o.finalSubtotal == 0)
+    ).length;
     final items = [
       const _SidebarItem(icon: Icons.dashboard_rounded, label: 'Dashboard', route: '/admin/dashboard'),
+      _SidebarItem(icon: Icons.receipt_long_rounded, label: 'Orders', route: '/admin/orders', badge: pendingCount),
+      _SidebarItem(icon: Icons.assignment_turned_in_rounded, label: 'Manage Order', route: '/admin/manage-order', badge: unpricedCount),
+      const _SidebarItem(icon: Icons.local_shipping_rounded, label: 'Delivery', route: '/admin/delivery'),
+      const _SidebarItem(icon: Icons.people_rounded, label: 'Customers', route: '/admin/customers'),
       const _SidebarItem(icon: Icons.inventory_2_rounded, label: 'Products', route: '/admin/products'),
       const _SidebarItem(icon: Icons.warehouse_rounded, label: 'Inventory', route: '/admin/inventory'),
-      const _SidebarItem(icon: Icons.people_rounded, label: 'Customers', route: '/admin/customers'),
-      const _SidebarItem(icon: Icons.receipt_long_rounded, label: 'Orders', route: '/admin/orders'),
-      const _SidebarItem(icon: Icons.local_shipping_rounded, label: 'Delivery', route: '/admin/delivery'),
       // _SidebarItem(icon: Icons.account_balance_wallet_rounded, label: 'Instalments', route: '/admin/instalments'), // Hidden: feature temporarily disabled
       const _SidebarItem(icon: Icons.bar_chart_rounded, label: 'Reports', route: '/admin/reports'),
     ];
@@ -199,7 +220,8 @@ class _SidebarItem {
   final IconData icon;
   final String label;
   final String route;
-  const _SidebarItem({required this.icon, required this.label, required this.route});
+  final int badge;
+  const _SidebarItem({required this.icon, required this.label, required this.route, this.badge = -1});
 }
 
 class _NavItem extends StatefulWidget {
@@ -232,12 +254,34 @@ class _NavItemState extends State<_NavItem> {
           dense: true,
           leading: Icon(widget.item.icon,
             color: widget.isActive ? AppColors.white : AppColors.sidebarText, size: 20),
-          title: Text(widget.item.label,
-            style: TextStyle(
-              color: widget.isActive ? AppColors.white : AppColors.sidebarText,
-              fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400,
-              fontSize: 14,
-            ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(widget.item.label,
+                  style: TextStyle(
+                    color: widget.isActive ? AppColors.white : AppColors.sidebarText,
+                    fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              if (widget.item.badge >= 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: widget.item.badge > 0 ? AppColors.danger : Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${widget.item.badge}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
           ),
           onTap: () => context.go(widget.item.route),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -256,6 +300,7 @@ class _MobileAppBar extends StatelessWidget implements PreferredSizeWidget {
     if (currentRoute.contains('products')) return 'Products';
     if (currentRoute.contains('inventory')) return 'Inventory';
     if (currentRoute.contains('customers')) return 'Customers';
+    if (currentRoute.contains('manage-order')) return 'Manage Order';
     if (currentRoute.contains('orders')) return 'Orders';
     if (currentRoute.contains('delivery')) return 'Delivery';
     if (currentRoute.contains('instalments')) return 'Instalments';

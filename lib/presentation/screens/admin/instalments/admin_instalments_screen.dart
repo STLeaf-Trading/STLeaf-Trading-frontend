@@ -347,6 +347,7 @@ class _AdminVerifyPhaseDialogState extends State<_AdminVerifyPhaseDialog> {
                     image: DecorationImage(
                       image: NetworkImage(entry.paymentProofUrl!),
                       fit: BoxFit.cover,
+                      onError: (e, s) => debugPrint('Error loading instalment proof image: $e'),
                     ),
                   ),
                   child: Center(

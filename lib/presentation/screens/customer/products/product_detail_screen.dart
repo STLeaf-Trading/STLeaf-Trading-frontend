@@ -230,8 +230,10 @@ class _ProductImage extends StatelessWidget {
                       placeholder: (context, url) => const Center(
                         child: CircularProgressIndicator(color: Colors.white),
                       ),
-                      errorWidget: (context, url, error) =>
-                          const Icon(Icons.broken_image, color: Colors.white, size: 80),
+                      errorWidget: (context, url, error) {
+                        debugPrint('Fullscreen image preview failed for $url: $error');
+                        return const Icon(Icons.broken_image, color: Colors.white, size: 80);
+                      },
                     ),
                   ),
                   Positioned(
@@ -330,7 +332,7 @@ class _ProductInfo extends StatelessWidget {
             style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
         const SizedBox(height: 16),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          if (selectedSize != null) ...[
+          if (selectedSize != null && selectedSize!.effectivePrice > 0) ...[
             Text('RM ${selectedSize!.effectivePrice.toStringAsFixed(2)}',
                 style: const TextStyle(
                     fontSize: 32,
@@ -343,6 +345,11 @@ class _ProductInfo extends StatelessWidget {
                       fontSize: 16,
                       color: AppColors.textMuted,
                       decoration: TextDecoration.lineThrough)),
+            const Spacer(),
+            Text('/${selectedSize!.unit}',
+                style:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+          ] else if (selectedSize != null) ...[
             const Spacer(),
             Text('/${selectedSize!.unit}',
                 style:
@@ -492,13 +499,15 @@ class _ProductInfo extends StatelessWidget {
 
           final currentSize = selectedSize ?? p.defaultSize;
           final currentPrice = currentSize?.effectivePrice ?? p.effectivePrice;
-          Widget totalText = Text(
-            'Total: RM ${(currentPrice * quantity).toStringAsFixed(2)}',
-            style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary),
-          );
+          Widget totalText = currentPrice > 0
+              ? Text(
+                  'Total: RM ${(currentPrice * quantity).toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary),
+                )
+              : const SizedBox.shrink();
 
           if (isNarrow) {
             return Column(

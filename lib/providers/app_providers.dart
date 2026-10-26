@@ -123,6 +123,23 @@ class ProductProvider extends ChangeNotifier {
     await _db.collection('products').doc(id).delete();
   }
 
+  /// Updates the price of a specific size on a product.
+  /// [sizeIndex] is the index into the `sizes` array.
+  /// [newPrice] is the new price to set.
+  /// After saving, Firestore's live listener will push the change to all clients instantly.
+  Future<void> updateProductPriceForSize(String productId, int sizeIndex, double newPrice) async {
+    final doc = await _db.collection('products').doc(productId).get();
+    if (!doc.exists) return;
+    final data = doc.data() as Map<String, dynamic>;
+    final sizes = List<dynamic>.from(data['sizes'] as List? ?? []);
+    if (sizeIndex >= 0 && sizeIndex < sizes.length) {
+      final size = Map<String, dynamic>.from(sizes[sizeIndex] as Map);
+      size['price'] = newPrice;
+      sizes[sizeIndex] = size;
+      await _db.collection('products').doc(productId).update({'sizes': sizes});
+    }
+  }
+
   bool isItemCodeUnique(String code, String? excludeId) {
     return !_products.any((p) =>
         p.itemCode.toLowerCase() == code.toLowerCase() && p.id != excludeId);

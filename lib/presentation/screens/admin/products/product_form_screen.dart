@@ -485,7 +485,9 @@ class _FormSection extends StatelessWidget {
                             : (existingImageUrl != null
                                 ? DecorationImage(
                                     image: NetworkImage(existingImageUrl!),
-                                    fit: BoxFit.cover)
+                                    fit: BoxFit.cover,
+                                    onError: (e, s) => debugPrint('Error loading existingImageUrl: $e'),
+                                  )
                                 : null),
                       ),
                       child: (imageBytes == null && existingImageUrl == null)
@@ -895,7 +897,9 @@ class _PreviewCard extends StatelessWidget {
                   : (existingImageUrl != null
                       ? DecorationImage(
                           image: NetworkImage(existingImageUrl!),
-                          fit: BoxFit.cover)
+                          fit: BoxFit.cover,
+                          onError: (e, s) => debugPrint('Error loading existingImageUrl: $e'),
+                        )
                       : null),
             ),
             child: (imageBytes == null && existingImageUrl == null)

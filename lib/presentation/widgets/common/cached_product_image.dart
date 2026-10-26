@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 
@@ -46,11 +47,14 @@ class CachedProductImage extends StatelessWidget {
         fit: fit,
         // Show shimmer while loading
         placeholder: (context, url) => const _ShimmerBox(),
-        // Show fallback icon on error
-        errorWidget: (context, url, error) => fallback,
-        // Cache images for 7 days
-        maxWidthDiskCache: 800,
-        maxHeightDiskCache: 800,
+        // Show fallback icon on error and log diagnostic details
+        errorWidget: (context, url, error) {
+          debugPrint('CachedProductImage error loading $url: $error');
+          return fallback;
+        },
+        // Cache images on disk (mobile only, web does not support disk cache)
+        maxWidthDiskCache: kIsWeb ? null : 800,
+        maxHeightDiskCache: kIsWeb ? null : 800,
       ),
     );
   }

@@ -70,25 +70,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     const double actualDeliveryFee = 0.0;
     final double actualTotalAmount = cart.subtotal;
 
-    // MOQ check — only for delivery
-    if (_deliveryMethod == 'Deliver by Company' &&
-        cart.subtotal < AppConstants.minOrderForDelivery) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Minimum Order Not Met'),
-          content: Text(
-            'A minimum order of RM ${AppConstants.minOrderForDelivery.toStringAsFixed(0)} is required for delivery. '
-            'Please add more items or switch to self-pickup.',
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
-          ],
-        ),
-      );
-      return;
-    }
 
     setState(() => _isPlacing = true);
     final auth = context.read<AuthProvider>();
@@ -271,8 +252,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = context.watch<CartProvider>();
     const double actualDeliveryFee = 0.0;
     final double actualTotalAmount = cart.subtotal;
-    final bool belowMoq = _deliveryMethod == 'Deliver by Company' &&
-        cart.subtotal < AppConstants.minOrderForDelivery;
 
     return CustomerLayout(
       currentRoute: '/shop',
@@ -289,33 +268,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 20),
                 _deliveryInfoCard(context),
                 const SizedBox(height: 16),
-                // MOQ warning at checkout
-                if (belowMoq) ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.warningLight,
-                      borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: AppColors.warning.withOpacity(0.4)),
-                    ),
-                    child: Row(children: [
-                      const Icon(Icons.warning_amber_rounded,
-                          color: AppColors.warning, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: Text(
-                        'Minimum RM ${AppConstants.minOrderForDelivery.toStringAsFixed(0)} required for delivery. '
-                        'Switch to Pickup to proceed with current cart.',
-                        style: const TextStyle(
-                            color: AppColors.warning,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600),
-                      )),
-                    ]),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+
                 _paymentMethodCard(),
                 const SizedBox(height: 16),
                 _orderItemsCard(cart),
@@ -329,7 +282,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               deliveryFee: actualDeliveryFee,
               totalAmount: actualTotalAmount,
               isPlacing: _isPlacing,
-              belowMoq: belowMoq,
               onPlace: _placeOrder,
             );
 
@@ -554,7 +506,6 @@ class _OrderSummary extends StatelessWidget {
   final double deliveryFee;
   final double totalAmount;
   final bool isPlacing;
-  final bool belowMoq;
   final VoidCallback onPlace;
 
   const _OrderSummary({
@@ -563,7 +514,6 @@ class _OrderSummary extends StatelessWidget {
     required this.deliveryFee,
     required this.totalAmount,
     required this.isPlacing,
-    required this.belowMoq,
     required this.onPlace,
   });
 
@@ -574,32 +524,27 @@ class _OrderSummary extends StatelessWidget {
         const Text('Order Summary',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         const SizedBox(height: 16),
-        _row('Subtotal', 'RM ${cart.subtotal.toStringAsFixed(2)}'),
+        _row('Subtotal', 'TBD by Admin'),
         const SizedBox(height: 8),
-        if (deliveryFee == 0)
-          _row('Delivery Fee', 'TBD by Admin')
-        else
-          _row('Delivery Fee', 'RM ${deliveryFee.toStringAsFixed(2)}'),
+        _row('Delivery Fee', 'TBD by Admin'),
         _row('Payment', paymentMethod),
         const Divider(height: 24),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           const Text('Preview Total',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-          Text('RM ${totalAmount.toStringAsFixed(2)}',
-              style: const TextStyle(
-                  fontSize: 22,
+          const Text('TBD by Admin',
+              style: TextStyle(
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primary)),
         ]),
         const SizedBox(height: 20),
         AppButton(
-          label: belowMoq ? 'Min. RM 100 for Delivery' : 'Place Order',
-          icon: belowMoq
-              ? Icons.warning_amber_rounded
-              : Icons.check_circle_rounded,
+          label: 'Place Order',
+          icon: Icons.check_circle_rounded,
           isLoading: isPlacing,
           width: double.infinity,
-          onPressed: (cart.isEmpty || belowMoq) ? null : onPlace,
+          onPressed: cart.isEmpty ? null : onPlace,
         ),
         const SizedBox(height: 12),
         AppButton(

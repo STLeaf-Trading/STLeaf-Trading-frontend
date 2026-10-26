@@ -423,18 +423,20 @@ class _ProductCardState extends State<_ProductCard> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
                       const Spacer(),
-                      if (p.hasPromotion)
-                        Text('RM ${p.defaultSize!.price.toStringAsFixed(2)}',
+                      if (p.effectivePrice > 0) ...[
+                        if (p.hasPromotion)
+                          Text('RM ${p.defaultSize!.price.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontSize: 9,
+                                  color: AppColors.textMuted,
+                                  decoration: TextDecoration.lineThrough)),
+                        Text(
+                            '${p.sizes.length > 1 ? 'From ' : ''}RM ${p.effectivePrice.toStringAsFixed(2)}',
                             style: const TextStyle(
-                                fontSize: 9,
-                                color: AppColors.textMuted,
-                                decoration: TextDecoration.lineThrough)),
-                      Text(
-                          '${p.sizes.length > 1 ? 'From ' : ''}RM ${p.effectivePrice.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.primary)),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primary)),
+                      ],
                       const SizedBox(height: 5),
                       SizedBox(
                         width: double.infinity,
