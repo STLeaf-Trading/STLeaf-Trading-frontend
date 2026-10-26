@@ -225,16 +225,29 @@ class _ProductImage extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   InteractiveViewer(
-                    child: CachedNetworkImage(
-                      imageUrl: product.imageUrl!,
-                      placeholder: (context, url) => const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      ),
-                      errorWidget: (context, url, error) {
-                        debugPrint('Fullscreen image preview failed for $url: $error');
-                        return const Icon(Icons.broken_image, color: Colors.white, size: 80);
-                      },
-                    ),
+                    child: (product.localAssetPath != null)
+                        ? Image.asset(
+                            product.localAssetPath!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => CachedNetworkImage(
+                              imageUrl: product.imageUrl!,
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(color: Colors.white),
+                              ),
+                              errorWidget: (context, url, error) =>
+                                  const Icon(Icons.broken_image, color: Colors.white, size: 80),
+                            ),
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: product.imageUrl!,
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(color: Colors.white),
+                            ),
+                            errorWidget: (context, url, error) {
+                              debugPrint('Fullscreen image preview failed for $url: $error');
+                              return const Icon(Icons.broken_image, color: Colors.white, size: 80);
+                            },
+                          ),
                   ),
                   Positioned(
                     top: 0,
@@ -257,6 +270,7 @@ class _ProductImage extends StatelessWidget {
           children: [
             CachedProductImage(
               imageUrl: product.imageUrl,
+              itemCode: product.itemCode,
               width: double.infinity,
               height: 320,
               fit: BoxFit.cover,

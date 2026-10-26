@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:stleaf_trading/core/constants/product_assets.dart';
 
 class ProductSizeModel {
   final String unit; // 'Gram', 'Kg', 'Pack', 'Box'
@@ -69,6 +70,9 @@ class ProductModel {
   bool get isLowStock => stockQuantity <= lowStockLevel;
   bool get isOutOfStock => stockQuantity <= 0;
   bool get isActive => status != 'Inactive';
+
+  /// Path to bundled local asset if this product has a local image backup.
+  String? get localAssetPath => ProductAssets.getAssetPath(itemCode);
 
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
     final json = doc.data() as Map<String, dynamic>? ?? {};

@@ -354,6 +354,7 @@ class _ProductCardState extends State<_ProductCard> {
                   children: [
                     CachedProductImage(
                       imageUrl: p.imageUrl,
+                      itemCode: p.itemCode,
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.cover,

@@ -1,14 +1,18 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:stleaf_trading/core/constants/product_assets.dart';
 import 'package:stleaf_trading/core/theme/app_colors.dart';
 
 /// A reusable widget that displays a product image with:
-/// - Disk + memory caching (loads instantly on repeat views)
-/// - Shimmer placeholder while loading
+/// - Instant local asset loading when available (0ms load time, 0 Firebase cost)
+/// - Network caching fallback for newly added products
+/// - Shimmer placeholder while loading from network
 /// - Fallback icon if no image or load fails
 class CachedProductImage extends StatelessWidget {
   final String? imageUrl;
+  final String? itemCode;
+  final String? assetPath;
   final double? width;
   final double? height;
   final BoxFit fit;
@@ -18,6 +22,8 @@ class CachedProductImage extends StatelessWidget {
   const CachedProductImage({
     super.key,
     required this.imageUrl,
+    this.itemCode,
+    this.assetPath,
     this.width,
     this.height,
     this.fit = BoxFit.cover,
@@ -35,27 +41,47 @@ class CachedProductImage extends StatelessWidget {
       ),
     );
 
-    if (imageUrl == null || imageUrl!.isEmpty) {
-      return _wrap(fallback);
+    // 1. Check if a local bundled asset exists for this product
+    final localAsset = assetPath ?? ProductAssets.getAssetPath(itemCode);
+    if (localAsset != null) {
+      return _wrap(
+        Image.asset(
+          localAsset,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('Local asset $localAsset failed to load, falling back to network: $error');
+            return _buildNetworkImage(fallback);
+          },
+        ),
+      );
     }
 
-    return _wrap(
-      CachedNetworkImage(
-        imageUrl: imageUrl!,
-        width: width,
-        height: height,
-        fit: fit,
-        // Show shimmer while loading
-        placeholder: (context, url) => const _ShimmerBox(),
-        // Show fallback icon on error and log diagnostic details
-        errorWidget: (context, url, error) {
-          debugPrint('CachedProductImage error loading $url: $error');
-          return fallback;
-        },
-        // Cache images on disk (mobile only, web does not support disk cache)
-        maxWidthDiskCache: kIsWeb ? null : 800,
-        maxHeightDiskCache: kIsWeb ? null : 800,
-      ),
+    // 2. Otherwise load from network (Firebase Storage)
+    return _wrap(_buildNetworkImage(fallback));
+  }
+
+  Widget _buildNetworkImage(Widget fallback) {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return fallback;
+    }
+
+    return CachedNetworkImage(
+      imageUrl: imageUrl!,
+      width: width,
+      height: height,
+      fit: fit,
+      // Show shimmer while loading
+      placeholder: (context, url) => const _ShimmerBox(),
+      // Show fallback icon on error and log diagnostic details
+      errorWidget: (context, url, error) {
+        debugPrint('CachedProductImage error loading $url: $error');
+        return fallback;
+      },
+      // Cache images on disk (mobile only, web does not support disk cache)
+      maxWidthDiskCache: kIsWeb ? null : 800,
+      maxHeightDiskCache: kIsWeb ? null : 800,
     );
   }
 
